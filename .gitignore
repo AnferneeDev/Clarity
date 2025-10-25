@@ -1,0 +1,35 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Node.js diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Dependencies
+# This is the most important one!
+node_modules/
+
+# Environment Variables
+# MUST be ignored to keep your API keys and secrets safe!
+.env
+.env.*
+
+# Vite
+# This is the Vite cache folder
+.vite/
+
+# TypeScript
+*.tsbuildinfo
+
+# Caches
+.eslintcache
+
+# Build / Output folders
+# These are your project's compiled output folders
+dist/
+out/
+
+# macOS
+.DS_Store
+

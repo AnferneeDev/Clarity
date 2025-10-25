@@ -149,7 +149,6 @@ export default function TimerView() {
 
     const activeSeconds = Math.floor((Date.now() - focusStartRef.current) / 1000) - totalPausedSecondsRef.current;
 
-    // Only save if we've crossed a full minute boundary since last save
     if (activeSeconds >= lastSaveSecondRef.current + 60) {
       try {
         const currentDate = localDateString();
@@ -168,7 +167,7 @@ export default function TimerView() {
       console.log(`[AutoSave] Starting auto-save for "${focusSessionSubjectRef.current}"`);
       autoSaveIntervalRef.current = setInterval(() => {
         autoSaveFocusTime();
-      }, 10000); // Check every 10 seconds
+      }, 10000);
     } else {
       if (autoSaveIntervalRef.current) {
         clearInterval(autoSaveIntervalRef.current);
@@ -287,11 +286,14 @@ export default function TimerView() {
       return;
     }
 
-    if (currentPhase === "focus" && !isResuming) {
-      focusStartRef.current = Date.now();
+    if (currentPhase === "focus") {
+      if (!isResuming) {
+        focusStartRef.current = Date.now();
+        totalPausedSecondsRef.current = 0;
+        lastSaveSecondRef.current = 0;
+      }
       focusSessionSubjectRef.current = selectedSubject;
-      lastSaveSecondRef.current = 0;
-      console.log(`[Control] Started focus for "${selectedSubject}"`);
+      console.log(`[Control] Focus session subject: "${selectedSubject}"`);
     }
 
     if (isResuming) {
@@ -349,14 +351,26 @@ export default function TimerView() {
   }
 
   async function handleSubjectChange(displayName: string) {
+    const isPaused = !isRunning && !!pauseStartRef.current;
+
     if (isRunning) {
-      setError("Cannot change subject while running");
+      setError("Cannot change subject while timer is running. Pause first.");
       return;
+    }
+
+    if (isPaused && currentPhase === "focus") {
+      console.log(`[Control] Changing subject while paused from "${selectedSubject}" to "${displayName}"`);
     }
 
     const normalizedName = displayName.toLowerCase();
     if (subjects.includes(normalizedName)) {
       setSelectedSubject(normalizedName);
+
+      if (isPaused && currentPhase === "focus") {
+        focusSessionSubjectRef.current = normalizedName;
+        console.log(`[Control] Updated paused session subject to "${normalizedName}"`);
+      }
+
       try {
         localStorage.setItem(LS_SELECTED_NAME, normalizedName);
       } catch (err) {
@@ -367,7 +381,7 @@ export default function TimerView() {
 
   async function handleAddSubject(name: string) {
     if (isRunning) {
-      setError("Cannot add subject while running");
+      setError("Cannot add subject while running. Pause first.");
       return;
     }
 
@@ -415,7 +429,7 @@ export default function TimerView() {
 
   async function handleHideSubjectByName(displayName: string) {
     if (isRunning) {
-      setError("Cannot hide subject while running");
+      setError("Cannot hide subject while running. Pause first.");
       return;
     }
 

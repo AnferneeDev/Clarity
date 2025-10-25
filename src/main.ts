@@ -150,7 +150,11 @@ if (!gotTheLock) {
 } else {
   app.on("second-instance", (_event, _commandLine, _workingDirectory) => {
     if (mainWindow) {
+      // If window is minimized or hidden, restore and show it
       if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
+
+      // Bring it to the front
       mainWindow.focus();
     }
   });

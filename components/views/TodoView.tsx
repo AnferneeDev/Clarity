@@ -5,22 +5,18 @@ import { Checkbox } from "../Check";
 import { Input } from "../ui/input";
 import { Calendar as ShadCalendar } from "../ui/calendar";
 import { TimePicker } from "../ui/timepicker";
-import dataService, { Todo as DataTodo } from "../../src/services/dataService";
 
 interface Todo {
-  id: string;
+  id: string; // IPC sends as number, but we can treat as string/any or convert. 
+              // dataService used string IDs for csv? storage.ts uses number. 
+              // React keys need to handle this.
   text: string;
   done: boolean;
   dueDate?: string;
   starred: boolean;
 }
 
-function localDateString(d = new Date()) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+
 
 function formatDateForDisplay(dateStr?: string) {
   if (!dateStr) return "";
@@ -45,47 +41,59 @@ export default function TodoView() {
     return today.toLocaleDateString("en-US", options);
   };
 
-  // Load todos from dataService
-  const loadTodos = () => {
-    const allTodos = dataService.getTodos();
-    setTodos(allTodos.map(t => ({
-      id: t.id,
-      text: t.text,
-      done: t.done,
-      starred: t.starred,
-      dueDate: t.dueDate,
-    })));
+  // Load todos from IPC
+  const loadTodos = async () => {
+    try {
+      const allTodos = await window.electronAPI.getAllTodos();
+      // Ensure data structure matches
+      setTodos(allTodos.map((t: any) => ({
+        id: String(t.id),
+        text: t.text,
+        done: t.done,
+        starred: t.starred,
+        dueDate: t.dueDate,
+      })));
+    } catch (err) {
+      console.error("Failed to load todos", err);
+    }
   };
 
   useEffect(() => {
     loadTodos();
   }, []);
 
-  const addTask = () => {
+  const addTask = async () => {
     if (!newTaskText.trim()) return;
-    dataService.addTodo(newTaskText.trim());
-    setNewTaskText("");
-    loadTodos();
+    try {
+      await window.electronAPI.addTodo({ text: newTaskText.trim() });
+      setNewTaskText("");
+      loadTodos();
+    } catch (err) {
+      console.error("Failed to add todo", err);
+    }
   };
 
-  const toggleTodo = (id: string) => {
-    const todo = todos.find(t => t.id === id);
+  const toggleTodo = async (idStr: string) => {
+    const id = Number(idStr);
+    const todo = todos.find(t => t.id === idStr);
     if (todo) {
-      dataService.updateTodo(id, { done: !todo.done });
+      await window.electronAPI.updateTodo(id, { done: !todo.done });
       loadTodos();
     }
   };
 
-  const toggleStar = (id: string) => {
-    const todo = todos.find(t => t.id === id);
+  const toggleStar = async (idStr: string) => {
+    const id = Number(idStr);
+    const todo = todos.find(t => t.id === idStr);
     if (todo) {
-      dataService.updateTodo(id, { starred: !todo.starred });
+      await window.electronAPI.updateTodo(id, { starred: !todo.starred });
       loadTodos();
     }
   };
 
-  const deleteTodo = (id: string) => {
-    dataService.deleteTodo(id);
+  const deleteTodo = async (idStr: string) => {
+    const id = Number(idStr);
+    await window.electronAPI.deleteTodo(id);
     loadTodos();
   };
 
@@ -108,11 +116,12 @@ export default function TodoView() {
     setEditingDueValue(null);
   };
 
-  const saveDueDate = (todoId: string) => {
+  const saveDueDate = async (todoIdStr: string) => {
+    const id = Number(todoIdStr);
     if (!editingDueValue) {
-      dataService.updateTodo(todoId, { dueDate: undefined });
+      await window.electronAPI.updateTodo(id, { dueDate: undefined });
     } else {
-      dataService.updateTodo(todoId, { dueDate: editingDueValue.toISOString() });
+      await window.electronAPI.updateTodo(id, { dueDate: editingDueValue.toISOString() });
     }
     loadTodos();
     closeDueEditor();

@@ -1,30 +1,48 @@
-// src/global.d.ts
 export {};
 
 declare global {
   interface Window {
     electronAPI: {
+      // Core Notification
       notify: (title: string, body: string) => Promise<any>;
-      getDashboardData: (date?: string) => Promise<any>;
+      playSound: (sound: string) => Promise<any>;
+      setTrayState: (state: "active" | "idle") => Promise<any>;
 
-      startSession: (subjectId: number | string) => Promise<any>;
-      completeSession: (sessionId: number | string, durationMinutes: number, pausedSeconds: number) => Promise<any>;
-      getAllSessions: () => Promise<any[]>;
-      removeSubjectTotal: (subjectName: string) => Promise<boolean>;
-      query: (table: string, where?: any, options?: any) => Promise<any[]>;
+      // Auth
+      auth: {
+        login: (u: string, p: string) => Promise<{ id: string; username: string } | null>;
+        register: (u: string, p: string) => Promise<{ id: string; username: string } | { error: string }>;
+        verify: (id: string) => Promise<any>;
+        logout: () => Promise<boolean>;
+      };
+
+      // Timer & Subjects
+      timerDb: {
+        getAllSubjects: () => Promise<string[]>;
+        checkIfSubjectExists: (name: string) => Promise<boolean>;
+        addOrUpdateTimerData: (subject: string, date: string, minutes: number) => Promise<any>;
+        addSubject: (name: string) => Promise<any>;
+        hideSubject: (name: string) => Promise<any>;
+        unhideSubject: (name: string) => Promise<any>;
+        deleteSubjectCompletely: (name: string) => Promise<any>;
+        getSubjectTotalsByDateRange: (start?: string, end?: string) => Promise<any[]>;
+        getDailyAggregatedData: (start?: string, end?: string) => Promise<any[]>;
+        getSubjectDateAggregatedData: (start?: string, end?: string) => Promise<any[]>;
+      };
+
+      // Todos
+      getAllTodos: () => Promise<any[]>;
+      addTodo: (todo: { text: string; done?: boolean; starred?: boolean; dueDate?: string }) => Promise<any>;
+      updateTodo: (id: number, updates: any) => Promise<any>;
+      deleteTodo: (id: number) => Promise<any>;
+
+      // Generic DB (Notes)
+      query: (table: string) => Promise<any[]>;
       insert: (table: string, data: any) => Promise<any>;
-      update: (table: string, id: number | string, data: any) => Promise<any>;
-      remove: (table: string, id: number | string) => Promise<any>;
+      update: (table: string, id: number, data: any) => Promise<any>;
+      remove: (table: string, id: number) => Promise<any>;
 
-      getTodosByDate: (date: string) => Promise<any[]>;
-      addTodo: (todo: { date: string; text: string; subjectId?: number; starred?: boolean; dueDate?: string }) => Promise<any>;
-      updateTodo: (id: number | string, updates: { done?: boolean; starred?: boolean; text?: string; dueDate?: string }) => Promise<any>;
-      deleteTodo: (id: number | string) => Promise<any>;
-      getStarredTodos: () => Promise<any[]>;
-
-      getSubjectTimeStats: (startDate?: string, endDate?: string) => Promise<any[]>;
-      getSessionsForMonth: (year: number, month: number) => Promise<any[]>;
-
+      // Backgrounds
       setViewBackground: (view: string, file: { name: string; data: Uint8Array }) => Promise<any>;
       getViewBackground: (view: string) => Promise<string | null>;
       getViewBackgroundData: (view: string) => Promise<string | null>;
@@ -33,7 +51,7 @@ declare global {
     };
   }
 
-  // asset modules + Vite constants you used earlier
+  // Assets
   declare module "*.ico";
   declare module "*.jpg";
   declare module "*.jpeg";

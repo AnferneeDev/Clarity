@@ -9,46 +9,28 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "./ui/input";
 import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
+import { useTimerContext } from "./context/TimerContext";
 
-interface SetupCardProps {
-  className?: string;
-  subjects: string[];
-  selectedSubject: string;
-  focusMinutes: number;
-  shortBreakMinutes: number;
-  longBreakMinutes: number;
-  allowLongTimers: boolean;
-  autoStartBreaks: boolean;
-  isRunning: boolean;
-  onSubjectChange?: (s: string) => void;
-  onAddSubject?: (name: string) => void;
-  onUpdateFocus?: (m: number) => void;
-  onUpdateShortBreak?: (m: number) => void;
-  onUpdateLongBreak?: (m: number) => void;
-  onToggleLongTimers?: (enabled: boolean) => void;
-  onToggleAutoStart?: (enabled: boolean) => void;
-  onHideSubject?: (name: string) => void;
-}
+export default function SetupCard({ className }: { className?: string }) {
+  const {
+    subjects,
+    selectedSubject,
+    focusMinutes,
+    shortBreakMinutes,
+    longBreakMinutes,
+    allowLongTimers,
+    autoStartBreaks,
+    isRunning,
+    handleSubjectChange,
+    handleAddSubject,
+    setFocusMinutes,
+    setShortBreakMinutes,
+    setLongBreakMinutes,
+    setAllowLongTimers,
+    setAutoStartBreaks,
+    handleHideSubject,
+  } = useTimerContext();
 
-export default function SetupCard({
-  className,
-  subjects = [],
-  selectedSubject = "General",
-  focusMinutes = 25,
-  shortBreakMinutes = 5,
-  longBreakMinutes = 15,
-  allowLongTimers = true,
-  autoStartBreaks = false,
-  isRunning = false,
-  onSubjectChange,
-  onAddSubject,
-  onUpdateFocus,
-  onUpdateShortBreak,
-  onUpdateLongBreak,
-  onToggleLongTimers,
-  onToggleAutoStart,
-  onHideSubject,
-}: SetupCardProps) {
   const [subjectDialogOpen, setSubjectDialogOpen] = useState(false);
   const [newSubject, setNewSubject] = useState("");
 
@@ -89,15 +71,18 @@ export default function SetupCard({
   const handleAdd = () => {
     const name = newSubject.trim();
     if (!name) return;
-    onAddSubject?.(name);
+    handleAddSubject(name);
     setNewSubject("");
     setSubjectDialogOpen(false);
   };
 
+  function capitalize(s: string) {
+    if (!s) return "";
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
   return (
-    // ADDED: `relative` class to position the overlay
     <Card className={`relative glass-card shadow-lg border border-glass-border ${className || ""}`}>
-      {/* ADDED: This is the invisible overlay that covers the card when the timer is running */}
       {isRunning && <div className="absolute inset-0 z-10 cursor-not-allowed" onClick={handleDisabledClick} title="Please pause or reset the timer to change settings." />}
 
       <CardContent className="space-y-3 pt-1">
@@ -107,8 +92,8 @@ export default function SetupCard({
           <div className="grid grid-cols-2 gap-2">
             {subjectList.map((subject) => (
               <div key={subject} className="relative group">
-                <Button size="sm" className={`w-full justify-center text-white ${selectedSubject === subject ? optionActiveClass : optionInactiveClass}`} onClick={() => onSubjectChange?.(subject)} disabled={isRunning}>
-                  {subject}
+                <Button size="sm" className={`w-full justify-center text-white ${selectedSubject === subject ? optionActiveClass : optionInactiveClass}`} onClick={() => handleSubjectChange(subject)} disabled={isRunning}>
+                  {capitalize(subject)}
                 </Button>
                 {!isRunning && (
                   <button
@@ -116,7 +101,7 @@ export default function SetupCard({
                     title={`Hide ${subject}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onHideSubject?.(subject);
+                      handleHideSubject(subject);
                     }}
                     className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                   >
@@ -139,7 +124,7 @@ export default function SetupCard({
           <Label className="text-white text-sm font-medium">Focus Duration</Label>
           <div className="grid grid-cols-3 gap-2">
             {focusOptions.map((opt) => (
-              <Button key={opt.key} size="sm" className={`w-full text-white ${isActive(opt.minutes, focusMinutes) ? optionActiveClass : optionInactiveClass}`} onClick={() => onUpdateFocus?.(opt.minutes)} disabled={isRunning}>
+              <Button key={opt.key} size="sm" className={`w-full text-white ${isActive(opt.minutes, focusMinutes) ? optionActiveClass : optionInactiveClass}`} onClick={() => setFocusMinutes(opt.minutes)} disabled={isRunning}>
                 {opt.label}
               </Button>
             ))}
@@ -151,7 +136,7 @@ export default function SetupCard({
           <Label className="text-white text-sm font-medium">Short Break</Label>
           <div className="grid grid-cols-3 gap-2">
             {shortBreakOptions.map((opt) => (
-              <Button key={opt.key} size="sm" className={`w-full text-white ${isActive(opt.minutes, shortBreakMinutes) ? optionActiveClass : optionInactiveClass}`} onClick={() => onUpdateShortBreak?.(opt.minutes)} disabled={isRunning}>
+              <Button key={opt.key} size="sm" className={`w-full text-white ${isActive(opt.minutes, shortBreakMinutes) ? optionActiveClass : optionInactiveClass}`} onClick={() => setShortBreakMinutes(opt.minutes)} disabled={isRunning}>
                 {opt.label}
               </Button>
             ))}
@@ -163,7 +148,7 @@ export default function SetupCard({
             <Label className="text-white text-sm font-medium">Long Break</Label>
             <div className="grid grid-cols-3 gap-2">
               {longBreakOptions.map((opt) => (
-                <Button key={opt.key} size="sm" className={`w-full text-white ${isActive(opt.minutes, longBreakMinutes) ? optionActiveClass : optionInactiveClass}`} onClick={() => onUpdateLongBreak?.(opt.minutes)} disabled={isRunning}>
+                <Button key={opt.key} size="sm" className={`w-full text-white ${isActive(opt.minutes, longBreakMinutes) ? optionActiveClass : optionInactiveClass}`} onClick={() => setLongBreakMinutes(opt.minutes)} disabled={isRunning}>
                   {opt.label}
                 </Button>
               ))}
@@ -175,11 +160,11 @@ export default function SetupCard({
         <div className="flex items-center justify-between pt-4 gap-6">
           <div className="flex items-center gap-2">
             <Label className="text-white text-sm font-medium">Enable Long Breaks</Label>
-            <Switch checked={allowLongTimers} onCheckedChange={(v) => onToggleLongTimers?.(Boolean(v))} disabled={isRunning} />
+            <Switch checked={allowLongTimers} onCheckedChange={(v) => setAllowLongTimers(Boolean(v))} disabled={isRunning} />
           </div>
           <div className="flex items-center gap-2">
             <Label className="text-white text-sm font-medium">Auto Start Pomodoros/Breaks</Label>
-            <Switch checked={autoStartBreaks} onCheckedChange={(v) => onToggleAutoStart?.(Boolean(v))} disabled={isRunning} />
+            <Switch checked={autoStartBreaks} onCheckedChange={(v) => setAutoStartBreaks(Boolean(v))} disabled={isRunning} />
           </div>
         </div>
       </CardContent>

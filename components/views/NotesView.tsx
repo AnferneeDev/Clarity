@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import dataService, { Note as DataNote } from "../../src/services/dataService";
 
 // Simple debounce hook
 function useDebounce(callback: (...args: any[]) => void, delay: number) {
@@ -26,7 +25,7 @@ function useDebounce(callback: (...args: any[]) => void, delay: number) {
 }
 
 interface Note {
-  id: string;
+  id: string; // IPC sends number, converted to string for React
   title: string;
   content: string;
   color: string;
@@ -39,26 +38,43 @@ export default function NotesSection() {
   const [openPickerFor, setOpenPickerFor] = useState<string | null>(null);
   const pickerRef = useRef<HTMLDivElement | null>(null);
 
-  const loadNotes = useCallback(() => {
-    const allNotes = dataService.getNotes();
-    setNotes(allNotes);
-    
-    // Select first note if none active
-    if (allNotes.length > 0 && (!activeNoteId || !allNotes.some(n => n.id === activeNoteId))) {
-      setActiveNoteId(allNotes[0].id);
+  const loadNotes = useCallback(async () => {
+    try {
+      const allNotes = await window.electronAPI.query("notes");
+      setNotes(allNotes.map((n: any) => ({
+        id: String(n.id),
+        title: n.title,
+        content: n.content,
+        color: n.color,
+      })));
+      
+      // We can't synchronously check notes here since state update is async, 
+      // but we can check the fetched array.
+      if (allNotes.length > 0 && (!activeNoteId || !allNotes.some((n: any) => String(n.id) === activeNoteId))) {
+        setActiveNoteId(String(allNotes[0].id));
+      }
+    } catch (err) {
+      console.error("Failed to load notes", err);
     }
   }, [activeNoteId]);
 
   useEffect(() => {
     loadNotes();
     
-    // Create default note if none exist
-    const allNotes = dataService.getNotes();
-    if (allNotes.length === 0) {
-      const newNote = dataService.addNote("My First Note", "", "#fef08a");
-      setActiveNoteId(newNote.id);
-      loadNotes();
-    }
+    // Create default note if none exist (checked async)
+    window.electronAPI.query("notes").then(async (allNotes: any[]) => {
+      if (allNotes.length === 0) {
+        const newNote = await window.electronAPI.insert("notes", { 
+          title: "My First Note", 
+          content: "", 
+          color: "#fef08a" 
+        });
+        if (newNote) {
+          setActiveNoteId(String(newNote.id));
+          loadNotes();
+        }
+      }
+    });
   }, []);
 
   // Close picker when clicking outside
@@ -76,34 +92,53 @@ export default function NotesSection() {
     };
   }, [openPickerFor]);
 
-  const addNote = () => {
+  const addNote = async () => {
     const title = newNoteTitle.trim();
     if (!title) return;
     
-    const newNote = dataService.addNote(title, "", "#fef08a");
-    setNotes(prev => [...prev, newNote]);
-    setActiveNoteId(newNote.id);
-    setNewNoteTitle("");
+    try {
+      const newNote = await window.electronAPI.insert("notes", { 
+        title, 
+        content: "", 
+        color: "#fef08a" 
+      });
+      
+      if (newNote) {
+        // Optimistic update or reload? Reload is safer for ID sync.
+        await loadNotes();
+        setActiveNoteId(String(newNote.id));
+        setNewNoteTitle("");
+      }
+    } catch (err) {
+      console.error("Failed to add note", err);
+    }
   };
 
-  const deleteNote = (id: string) => {
+  const deleteNote = async (idStr: string) => {
+    const id = Number(idStr);
     const originalNotes = notes;
-    const nextNotes = notes.filter(n => n.id !== id);
+    const nextNotes = notes.filter(n => n.id !== idStr);
     setNotes(nextNotes);
 
-    if (activeNoteId === id) {
+    if (activeNoteId === idStr) {
       setActiveNoteId(nextNotes[0]?.id || null);
     }
 
-    const success = dataService.deleteNote(id);
-    if (!success) {
+    try {
+      const success = await window.electronAPI.remove("notes", id);
+      if (!success) {
+        setNotes(originalNotes);
+      }
+    } catch (err) {
       setNotes(originalNotes);
+      console.error("Failed to delete note", err);
     }
   };
 
   // Debounced save for content
-  const debouncedUpdateContent = useDebounce((id: string, content: string) => {
-    dataService.updateNote(id, { content });
+  const debouncedUpdateContent = useDebounce((idStr: string, content: string) => {
+    const id = Number(idStr);
+    window.electronAPI.update("notes", id, { content });
   }, 500);
 
   const updateNoteContent = (id: string, content: string) => {
@@ -112,8 +147,9 @@ export default function NotesSection() {
   };
 
   // Debounced save for title
-  const debouncedUpdateTitle = useDebounce((id: string, title: string) => {
-    dataService.updateNote(id, { title });
+  const debouncedUpdateTitle = useDebounce((idStr: string, title: string) => {
+    const id = Number(idStr);
+    window.electronAPI.update("notes", id, { title });
   }, 500);
 
   const updateNoteTitle = (id: string, title: string) => {
@@ -121,9 +157,10 @@ export default function NotesSection() {
     debouncedUpdateTitle(id, title);
   };
 
-  const persistNoteColor = (id: string, color: string) => {
-    setNotes(prev => prev.map(n => (n.id === id ? { ...n, color } : n)));
-    dataService.updateNote(id, { color });
+  const persistNoteColor = (idStr: string, color: string) => {
+    const id = Number(idStr);
+    setNotes(prev => prev.map(n => (n.id === idStr ? { ...n, color } : n)));
+    window.electronAPI.update("notes", id, { color });
   };
 
   const activeNote = notes.find(n => n.id === activeNoteId) ?? null;

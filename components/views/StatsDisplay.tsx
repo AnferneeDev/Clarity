@@ -1,7 +1,7 @@
 // src/renderer/components/views/StatsDisplay.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -75,9 +75,7 @@ const saveTableConfig = (config: TableConfig) => {
   }
 };
 
-function pad(n: number, len = 2) {
-  return String(n).padStart(len, "0");
-}
+
 
 function formatMinutes(totalMinutes: number) {
   const hours = Math.floor(totalMinutes / 60);

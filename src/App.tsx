@@ -1,5 +1,4 @@
-// src/renderer/App.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TooltipProvider } from "../components/ui/tooltip";
 import { SidebarProvider } from "../components/ui/sidebar";
 import SidebarNav from "../components/SidebarNav";
@@ -8,16 +7,48 @@ import StatsView from "../components/views/StatsView";
 import SettingsView from "../components/views/SettingsView";
 import TodoView from "../components/views/TodoView";
 import NotesView from "../components/views/NotesView";
+import LoginView from "../components/views/LoginView";
 import useBackground from "../hooks/useBackground";
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"timer" | "stats" | "settings" | "todo" | "notes">("timer");
   const { backgrounds, handleBackgroundChange, removeBackground, getBackgroundForView } = useBackground();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const storedId = localStorage.getItem("clarity_user_id");
+      if (storedId) {
+        try {
+          const user = await window.electronAPI.auth.verify(storedId);
+          if (user) {
+            setIsAuthenticated(true);
+          } else {
+            localStorage.removeItem("clarity_user_id");
+            localStorage.removeItem("clarity_username");
+          }
+        } catch {
+          localStorage.removeItem("clarity_user_id");
+        }
+      }
+      setIsLoading(false);
+    };
+    checkAuth();
+  }, []);
 
   const currentBackground = getBackgroundForView(activeTab);
   const timerIsActive = activeTab === "timer";
   const todoIsActive = activeTab === "todo";
-  const overlayActive = timerIsActive || todoIsActive; // other foreground should be blocked when either timer or todo is active
+  const overlayActive = timerIsActive || todoIsActive;
+
+  if (isLoading) {
+    return <div className="h-screen w-screen bg-black flex items-center justify-center text-white">Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <LoginView onLoginSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   return (
     <TooltipProvider>

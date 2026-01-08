@@ -3,58 +3,29 @@ import React, { useEffect } from "react";
 import { Card, CardContent, CardFooter } from "./ui/card";
 import { Button } from "./ui/button";
 import { Play, Pause, X } from "lucide-react";
-
-type TimerPhase = "focus" | "short" | "long";
-type Control = "start" | "pause" | "reset" | null;
-
-interface TimerCardProps {
-  className?: string;
-  timeLeft: number;
-  currentPhase: TimerPhase;
-  isRunning: boolean;
-  isPaused?: boolean;
-  pauseSeconds?: number;
-  currentCycle: number;
-  focusMinutes: number;
-  shortBreakMinutes: number;
-  longBreakMinutes: number;
-  selectedSubject: string;
-  onStart?: () => void;
-  onPause?: () => void;
-  onReset?: () => void;
-  onSwitchPhase?: (phase: TimerPhase) => void;
-  allowLongTimers?: boolean;
-  activeControl?: Control;
-  setActiveControl?: (c: Control) => void;
-  phaseTotalSeconds?: number;
-  autoStartBreaks?: boolean;
-}
+import { useTimerContext } from "./context/TimerContext";
 
 function pad2(n: number) {
   return String(Math.max(0, Math.floor(n))).padStart(2, "0");
 }
 
-export default function TimerCard({
-  className,
-  timeLeft = 25 * 60,
-  currentPhase = "focus",
-  isRunning = false,
-  isPaused = false,
-  pauseSeconds = 0,
-  currentCycle = 1,
-  focusMinutes = 25,
-  shortBreakMinutes = 5,
-  longBreakMinutes = 15,
-  selectedSubject = "General",
-  onStart,
-  onPause,
-  onReset,
-  onSwitchPhase,
-  allowLongTimers = true,
-  setActiveControl,
-  phaseTotalSeconds = 25 * 60,
-  autoStartBreaks = false,
-}: TimerCardProps) {
+export default function TimerCard({ className }: { className?: string }) {
+  const {
+    timeLeft,
+    currentPhase,
+    isRunning,
+    isPaused,
+    pauseSeconds,
+    currentCycle,
+    selectedSubject,
+    handleStart,
+    handlePause,
+    handleReset,
+    handleSwitchPhase,
+    allowLongTimers,
+    phaseTotalSeconds,
+  } = useTimerContext();
+
   const FOCUS_COLOR = "239 68 68";
   const SHORT_BREAK_COLOR = "37 99 235";
   const LONG_BREAK_COLOR = "16 185 129";
@@ -86,42 +57,30 @@ export default function TimerCard({
   const tabInactiveClass = "bg-gray-400/80 text-white/90 hover:bg-[rgb(var(--accent-primary-rgb))]/50";
   const tabDisabledClass = "bg-gray-400/50 text-white/60 cursor-not-allowed";
 
-  const handleStart = () => {
-    onStart?.();
-  };
-  const handlePause = () => {
-    onPause?.();
-  };
-  const handleReset = () => {
-    onReset?.();
-  };
-  const handleSwitch = (phase: TimerPhase) => {
+  const handleSwitch = (phase: any) => {
     if (isRunning) return;
-    onSwitchPhase?.(phase);
+    handleSwitchPhase(phase);
   };
 
   const radius = 48;
   const circumference = 2 * Math.PI * radius;
-  const totalSeconds = Math.max(1, phaseTotalSeconds);
+  const totalSeconds = Math.max(1, phaseTotalSeconds || 1);
   const progress = (totalSeconds - timeLeft) / totalSeconds;
   const strokeDashoffset = circumference * (1 - progress);
   const totalDots = 60;
   const remainingDots = Math.max(0, Math.floor((timeLeft / totalSeconds) * totalDots));
 
-  let displayLabel = selectedSubject.toUpperCase();
-  let displayMinutes = minutes;
-  let displaySeconds = seconds;
+  let displayLabel = String(selectedSubject || "").toUpperCase();
   if (isPaused) {
-    const pMin = Math.floor((pauseSeconds || 0) / 60);
-    const pSec = (pauseSeconds || 0) % 60;
     displayLabel = "PAUSED";
-    displayMinutes = pMin;
-    displaySeconds = pSec;
   } else if (currentPhase === "short") {
     displayLabel = "SHORT BREAK";
   } else if (currentPhase === "long") {
     displayLabel = "LONG BREAK";
   }
+
+  const displayMinutes = isPaused ? Math.floor(pauseSeconds / 60) : minutes;
+  const displaySeconds = isPaused ? pauseSeconds % 60 : seconds;
 
   const circleStroke = "rgb(var(--accent-primary-rgb))";
   const playActive = isRunning === true;
@@ -146,7 +105,6 @@ export default function TimerCard({
           <button className={`${tabBase} ${isRunning ? tabDisabledClass : currentPhase === "short" ? tabActiveClass : tabInactiveClass}`} onClick={() => handleSwitch("short")} disabled={isRunning}>
             Short Break
           </button>
-          {/* CHANGED: This button is now correctly hidden when allowLongTimers is false */}
           {allowLongTimers && (
             <button className={`${tabBase} ${isRunning ? tabDisabledClass : currentPhase === "long" ? tabActiveClass : tabInactiveClass}`} onClick={() => handleSwitch("long")} disabled={isRunning}>
               Long Break

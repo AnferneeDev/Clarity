@@ -2,42 +2,36 @@
 
 import React, { useState, useEffect } from "react";
 import StatsDisplay from "./StatsDisplay";
+import dataService from "../../src/services/dataService";
 
 interface Session {
-  id: number;
+  id: string;
   subject_name: string;
-  phase: string;
-  start_time: string;
-  end_time: string;
+  date: string;
   duration_minutes: number;
-  paused_seconds: number;
-  pomodoros?: number;
 }
 
 export default function StatsView() {
-  const [viewMode, setViewMode] = useState<"progress" | "table">("table"); // Changed from "progress" to "table"
+  const [viewMode, setViewMode] = useState<"progress" | "table">("table");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load sessions for current month
-  const loadSessions = async () => {
-    try {
-      const now = new Date();
-      const sessionsData = await window.electronAPI.getSessionsForMonth(now.getFullYear(), now.getMonth() + 1);
-      setSessions(sessionsData);
-    } catch (error) {
-      console.error("Failed to load sessions:", error);
-    }
+  // Load sessions from dataService
+  const loadSessions = () => {
+    const allSessions = dataService.getTimerSessions();
+    // Map to the format expected by StatsDisplay
+    setSessions(allSessions.map(s => ({
+      id: s.id,
+      subject_name: s.subjectName,
+      date: s.date,
+      duration_minutes: s.minutes,
+    })));
   };
 
-  // Load data when component mounts
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await loadSessions();
-      setLoading(false);
-    };
-    loadData();
+    setLoading(true);
+    loadSessions();
+    setLoading(false);
   }, []);
 
   if (loading) {

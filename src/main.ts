@@ -107,7 +107,7 @@ function createAppTray(mainWin?: BrowserWindow | null) {
 
   try {
     tray = new Tray(iconImage);
-    tray.setToolTip("Clarity");
+    tray.setToolTip("Clarity v2");
     const contextMenu = Menu.buildFromTemplate([
       {
         label: "Show App",
@@ -200,7 +200,7 @@ if (!gotTheLock) {
 
   if (process.platform === "win32") {
     try {
-      app.setAppUserModelId("Clarity");
+      app.setAppUserModelId("Clarity v2");
     } catch (err) {
       console.warn("setAppUserModelId failed:", err);
     }

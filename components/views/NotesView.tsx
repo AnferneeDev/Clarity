@@ -4,8 +4,9 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import dataService, { Note as DataNote } from "../../src/services/dataService";
 
-// NEW: A simple debounce hook to prevent saving on every keystroke
+// Simple debounce hook
 function useDebounce(callback: (...args: any[]) => void, delay: number) {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -25,69 +26,42 @@ function useDebounce(callback: (...args: any[]) => void, delay: number) {
 }
 
 interface Note {
-  id: number;
+  id: string;
   title: string;
   content: string;
-  color?: string;
+  color: string;
 }
-
-const NOTES_INIT_FLAG = "notes:initialized";
 
 export default function NotesSection() {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [activeNoteId, setActiveNoteId] = useState<number | null>(null);
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [newNoteTitle, setNewNoteTitle] = useState("");
-  const [openPickerFor, setOpenPickerFor] = useState<number | null>(null);
+  const [openPickerFor, setOpenPickerFor] = useState<string | null>(null);
   const pickerRef = useRef<HTMLDivElement | null>(null);
 
-  const loadNotes = useCallback(async () => {
-    try {
-      const rows = (await window.electronAPI.query("notes", {}, { orderBy: "created_at ASC" })) as any[] | undefined;
-      const loaded: Note[] = (rows || []).map((r) => ({
-        id: Number(r.id),
-        title: String(r.title || ""),
-        content: String(r.content || ""),
-        color: r.color || "#ffffff",
-      }));
-      setNotes(loaded);
-
-      // Select the first note if none is active
-      if ((!activeNoteId || !loaded.some((n) => n.id === activeNoteId)) && loaded.length > 0) {
-        setActiveNoteId(loaded[0].id);
-      }
-    } catch (err) {
-      console.error("loadNotes error:", err);
-      setNotes([]);
+  const loadNotes = useCallback(() => {
+    const allNotes = dataService.getNotes();
+    setNotes(allNotes);
+    
+    // Select first note if none active
+    if (allNotes.length > 0 && (!activeNoteId || !allNotes.some(n => n.id === activeNoteId))) {
+      setActiveNoteId(allNotes[0].id);
     }
   }, [activeNoteId]);
 
-  // Initial load and default note creation
   useEffect(() => {
-    const initialize = async () => {
-      const rows = (await window.electronAPI.query("notes", {}, { orderBy: "created_at ASC" })) as any[] | undefined;
+    loadNotes();
+    
+    // Create default note if none exist
+    const allNotes = dataService.getNotes();
+    if (allNotes.length === 0) {
+      const newNote = dataService.addNote("My First Note", "", "#fef08a");
+      setActiveNoteId(newNote.id);
+      loadNotes();
+    }
+  }, []);
 
-      if (!rows || rows.length === 0) {
-        const alreadyInit = localStorage.getItem(NOTES_INIT_FLAG) === "1";
-        if (!alreadyInit) {
-          try {
-            const res = await window.electronAPI.insert("notes", { title: "My First Note", content: "", color: "#ffffff" });
-            localStorage.setItem(NOTES_INIT_FLAG, "1");
-            if (res?.id) {
-              setActiveNoteId(Number(res.id));
-            }
-          } catch (err) {
-            console.error("Failed to create default note:", err);
-          }
-        }
-      }
-      // After potential creation, load all notes.
-      await loadNotes();
-    };
-
-    initialize();
-  }, [loadNotes]);
-
-  // Close picker when clicking outside of it
+  // Close picker when clicking outside
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
       if (!pickerRef.current?.contains(e.target as Node)) {
@@ -102,103 +76,74 @@ export default function NotesSection() {
     };
   }, [openPickerFor]);
 
-  const addNote = async () => {
+  const addNote = () => {
     const title = newNoteTitle.trim();
     if (!title) return;
-    try {
-      const res = await window.electronAPI.insert("notes", { title, content: "", color: "#ffffff" });
-      const newNote: Note = { id: res.id, title, content: "", color: "#ffffff" };
-
-      // OPTIMIZED: Update state locally instead of re-fetching all notes
-      setNotes((prev) => [...prev, newNote]);
-      setActiveNoteId(newNote.id);
-      setNewNoteTitle("");
-    } catch (err) {
-      console.error("addNote failed:", err);
-      alert("Error: Could not add note."); // Inform user
-    }
+    
+    const newNote = dataService.addNote(title, "", "#fef08a");
+    setNotes(prev => [...prev, newNote]);
+    setActiveNoteId(newNote.id);
+    setNewNoteTitle("");
   };
 
-  const deleteNote = async (id: number) => {
-    // OPTIMIZED: Update state locally
+  const deleteNote = (id: string) => {
     const originalNotes = notes;
-    const nextNotes = notes.filter((n) => n.id !== id);
+    const nextNotes = notes.filter(n => n.id !== id);
     setNotes(nextNotes);
 
     if (activeNoteId === id) {
       setActiveNoteId(nextNotes[0]?.id || null);
     }
 
-    try {
-      await window.electronAPI.remove("notes", id);
-    } catch (err) {
-      console.error("deleteNote failed:", err);
-      alert("Error: Could not delete note. Reverting changes.");
-      setNotes(originalNotes); // Revert on failure
+    const success = dataService.deleteNote(id);
+    if (!success) {
+      setNotes(originalNotes);
     }
   };
 
-  // REFACTORED: Debounced save function for content
-  const debouncedUpdateContent = useDebounce(async (id: number, content: string) => {
-    try {
-      await window.electronAPI.update("notes", id, { content });
-    } catch (err) {
-      console.error("updateNoteContent failed:", err);
-      alert("Failed to save note content. Your changes might be lost.");
-      // Re-fetch from backend to ensure UI is in sync with last saved state
-      await loadNotes();
-    }
-  }, 500); // Debounce delay of 500ms
+  // Debounced save for content
+  const debouncedUpdateContent = useDebounce((id: string, content: string) => {
+    dataService.updateNote(id, { content });
+  }, 500);
 
-  const updateNoteContent = (id: number, content: string) => {
-    // Optimistically update the UI immediately
-    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, content } : n)));
-    // Trigger the debounced save to the backend
+  const updateNoteContent = (id: string, content: string) => {
+    setNotes(prev => prev.map(n => (n.id === id ? { ...n, content } : n)));
     debouncedUpdateContent(id, content);
   };
 
-  // REFACTORED: Debounced save function for title
-  const debouncedUpdateTitle = useDebounce(async (id: number, title: string) => {
-    try {
-      await window.electronAPI.update("notes", id, { title });
-    } catch (err) {
-      console.error("updateNoteTitle failed:", err);
-      alert("Failed to save note title. Your changes might be lost.");
-      await loadNotes();
-    }
+  // Debounced save for title
+  const debouncedUpdateTitle = useDebounce((id: string, title: string) => {
+    dataService.updateNote(id, { title });
   }, 500);
 
-  const updateNoteTitle = (id: number, title: string) => {
-    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, title } : n)));
+  const updateNoteTitle = (id: string, title: string) => {
+    setNotes(prev => prev.map(n => (n.id === id ? { ...n, title } : n)));
     debouncedUpdateTitle(id, title);
   };
 
-  const persistNoteColor = async (id: number, color: string) => {
-    const originalColor = notes.find((n) => n.id === id)?.color;
-    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, color } : n)));
-    try {
-      await window.electronAPI.update("notes", id, { color });
-    } catch (err) {
-      console.error("persistNoteColor failed:", err);
-      alert("Failed to save note color.");
-      // Revert color on failure
-      setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, color: originalColor } : n)));
-    }
+  const persistNoteColor = (id: string, color: string) => {
+    setNotes(prev => prev.map(n => (n.id === id ? { ...n, color } : n)));
+    dataService.updateNote(id, { color });
   };
 
-  const activeNote = notes.find((n) => n.id === activeNoteId) ?? null;
+  const activeNote = notes.find(n => n.id === activeNoteId) ?? null;
 
   return (
     <div className="w-full h-full flex justify-center p-2">
       <div className="w-full max-w-[1100px] h-full flex gap-4">
-        {/* LEFT PANEL */}
+        {/* LEFT PANEL - Notes List */}
         <div className="w-1/3 flex flex-col">
           <div className="flex items-center justify-between mb-3 px-2">
             <h2 className="text-2xl font-bold text-white">Notes</h2>
           </div>
           <div className="flex-1 overflow-y-auto space-y-2 pr-1">
             {notes.map((note) => (
-              <div key={note.id} onClick={() => setActiveNoteId(note.id)} className={`rounded-lg p-3 flex items-center justify-between cursor-pointer transition-all duration-150`} style={{ backgroundColor: note.color || "#ffffff" }}>
+              <div 
+                key={note.id} 
+                onClick={() => setActiveNoteId(note.id)} 
+                className="rounded-lg p-3 flex items-center justify-between cursor-pointer transition-all duration-150" 
+                style={{ backgroundColor: note.color || "#fef08a" }}
+              >
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="font-semibold text-gray-900 truncate" style={{ maxWidth: "12rem" }}>
                     {note.title || "Untitled"}
@@ -223,7 +168,7 @@ export default function NotesSection() {
           </div>
           <div className="mt-3 input-glass-compact transition-all duration-200">
             <div className="flex items-center gap-3 h-full">
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-800 hover:bg-gray-800/20 transition-colors text-medium" onClick={addNote}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-800 hover:bg-gray-800/20 transition-colors" onClick={addNote}>
                 <Plus className="h-4 w-4 stroke-2" />
               </Button>
               <div className="flex-1 h-full">
@@ -233,14 +178,14 @@ export default function NotesSection() {
                   value={newNoteTitle}
                   onChange={(e) => setNewNoteTitle(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && addNote()}
-                  className="w-full h-full bg-transparent text-white placeholder:text-white/80 text-base text-medium focus:outline-none focus:ring-0"
+                  className="w-full h-full bg-transparent text-white placeholder:text-white/80 text-base focus:outline-none focus:ring-0"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
+        {/* RIGHT PANEL - Note Editor */}
         <div className="flex-1 flex flex-col glass">
           <div className="bg-gray-900/40 border border-gray-700/50 rounded-2xl p-4 flex flex-col h-full overflow-hidden">
             <div className="flex flex-col gap-4 h-full">
@@ -257,18 +202,24 @@ export default function NotesSection() {
                   <button
                     onClick={() => {
                       if (!activeNote) return;
-                      setOpenPickerFor((prev) => (prev === activeNote.id ? null : activeNote.id));
+                      setOpenPickerFor(prev => (prev === activeNote.id ? null : activeNote.id));
                     }}
                     title="Change note color"
                     className="h-8 w-8 rounded-md border border-gray-700 flex items-center justify-center focus:outline-none"
-                    style={{ backgroundColor: activeNote?.color || "#ffffff" }}
+                    style={{ backgroundColor: activeNote?.color || "#fef08a" }}
                     disabled={!activeNote}
                   />
                   {openPickerFor === activeNote?.id && (
                     <div ref={pickerRef} onClick={(e) => e.stopPropagation()} className="absolute right-0 mt-3 w-33 p-2 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
                       <div className="flex flex-col-2 items-center justify-center">
                         <div className="flex items-center gap-3">
-                          <input type="color" value={activeNote?.color || "#ffffff"} onChange={(e) => activeNote && persistNoteColor(activeNote.id, e.target.value)} className="h-10 w-10 p-0 border-0 bg-transparent" aria-label="Pick color" />
+                          <input 
+                            type="color" 
+                            value={activeNote?.color || "#fef08a"} 
+                            onChange={(e) => activeNote && persistNoteColor(activeNote.id, e.target.value)} 
+                            className="h-10 w-10 p-0 border-0 bg-transparent" 
+                            aria-label="Pick color" 
+                          />
                         </div>
                         <div className="mt-1 ml-2 flex">
                           <Button size="sm" onClick={() => setOpenPickerFor(null)}>

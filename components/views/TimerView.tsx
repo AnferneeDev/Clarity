@@ -1,20 +1,20 @@
 import React, { useEffect, useRef, useState } from "react";
 import SetupCard from "../SetupCard";
 import TimerCard from "../TimerCard";
-import { localDateString } from "../../src/timeUtils";
+import dataService from "../../src/services/dataService";
 
 type TimerPhase = "focus" | "short" | "long";
 type Control = "start" | "pause" | "reset" | null;
 
-const LS_FOCUS = "pomodoro:focus_minutes";
-const LS_SHORT = "pomodoro:short_break_minutes";
-const LS_LONG = "pomodoro:long_break_minutes";
-const LS_ALLOW_LONG = "pomodoro:allow_long_timers";
-const LS_AUTO_START = "pomodoro:auto_start_breaks";
-const LS_SELECTED_NAME = "pomodoro:selected_subject_name";
-const LS_HIDDEN_SUBJECTS = "pomodoro:hidden_subjects";
+const LS_FOCUS = "clarity_v2:focus_minutes";
+const LS_SHORT = "clarity_v2:short_break_minutes";
+const LS_LONG = "clarity_v2:long_break_minutes";
+const LS_ALLOW_LONG = "clarity_v2:allow_long_timers";
+const LS_AUTO_START = "clarity_v2:auto_start_breaks";
+const LS_SELECTED_NAME = "clarity_v2:selected_subject";
+const LS_HIDDEN_SUBJECTS = "clarity_v2:hidden_subjects";
 
-const MAX_SUBJECTS = 6;
+const MAX_SUBJECTS = 20;
 
 function safeLocalNumber(key: string, fallback: number) {
   try {
@@ -32,23 +32,23 @@ function loadHiddenSubjects(): string[] {
     const raw = localStorage.getItem(LS_HIDDEN_SUBJECTS);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 }
 
-function saveHiddenSubjects(ids: string[]) {
-  try {
-    localStorage.setItem(LS_HIDDEN_SUBJECTS, JSON.stringify(ids));
-  } catch (err) {
-    console.error("[Storage] Failed to save hidden subjects:", err);
-  }
+function saveHiddenSubjects(names: string[]) {
+  localStorage.setItem(LS_HIDDEN_SUBJECTS, JSON.stringify(names));
 }
 
 function formatSubjectName(subject: string): string {
   if (!subject) return "";
   return subject.charAt(0).toUpperCase() + subject.slice(1);
+}
+
+function getLocalDateString(date = new Date()): string {
+  return date.toISOString().split("T")[0];
 }
 
 export default function TimerView() {
@@ -83,88 +83,74 @@ export default function TimerView() {
   const effectiveLongBreakMinutes = allowLongTimers ? longBreakMinutes : shortBreakMinutes;
 
   useEffect(() => {
-    console.log("[TimerView] Initializing component");
     loadSubjects();
   }, []);
 
-  const loadSubjects = async () => {
-    try {
-      console.log("[TimerView] Loading subjects from timerDb");
-      const allSubjects = await window.electronAPI.timerDb.getAllSubjects();
-      console.log(`[TimerView] Loaded ${allSubjects.length} subjects:`, allSubjects);
-      setSubjects(allSubjects);
+  const loadSubjects = () => {
+    // Get all unique subject names from dataService
+    const allSubjects = dataService.getSubjects().map(s => s.name.toLowerCase());
+    setSubjects(allSubjects);
 
-      const hidden = loadHiddenSubjects();
-      setHiddenSubjects(hidden);
+    const hidden = loadHiddenSubjects();
+    setHiddenSubjects(hidden);
 
-      const visibleSubjects = allSubjects.filter((subject) => !hidden.includes(subject));
+    const visibleSubjects = allSubjects.filter(s => !hidden.includes(s));
 
-      const savedName = localStorage.getItem(LS_SELECTED_NAME);
-      let chosen: string | null = null;
+    const savedName = localStorage.getItem(LS_SELECTED_NAME);
+    let chosen: string | null = null;
 
-      if (savedName && visibleSubjects.includes(savedName)) {
-        chosen = savedName;
-      } else if (visibleSubjects.length > 0) {
-        chosen = visibleSubjects[0];
-      }
+    if (savedName && visibleSubjects.includes(savedName)) {
+      chosen = savedName;
+    } else if (visibleSubjects.length > 0) {
+      chosen = visibleSubjects[0];
+    }
 
-      setSelectedSubject(chosen);
-      if (chosen) {
-        localStorage.setItem(LS_SELECTED_NAME, chosen);
-        console.log(`[TimerView] Selected subject: "${chosen}"`);
-      }
-    } catch (err) {
-      console.error("[TimerView][Init] Failed to load subjects:", err);
-      setError(`Failed to load subjects: ${String(err)}`);
+    setSelectedSubject(chosen);
+    if (chosen) {
+      localStorage.setItem(LS_SELECTED_NAME, chosen);
     }
   };
 
+  // Update timer when settings change
   useEffect(() => {
     const isPaused = !!pauseStartRef.current;
     if (isRunning || isPaused) return;
+    
     const total = Math.floor((currentPhase === "focus" ? focusMinutes : currentPhase === "short" ? shortBreakMinutes : effectiveLongBreakMinutes) * 60) || 1;
     phaseTotalSecondsRef.current = total;
     setTimeLeft(total);
-    try {
-      localStorage.setItem(LS_FOCUS, String(focusMinutes));
-      localStorage.setItem(LS_SHORT, String(shortBreakMinutes));
-      localStorage.setItem(LS_LONG, String(longBreakMinutes));
-      localStorage.setItem(LS_ALLOW_LONG, String(allowLongTimers));
-      localStorage.setItem(LS_AUTO_START, String(autoStartBreaks));
-    } catch (err) {
-      console.error("[Settings] Failed to save settings to localStorage:", err);
-    }
+    
+    localStorage.setItem(LS_FOCUS, String(focusMinutes));
+    localStorage.setItem(LS_SHORT, String(shortBreakMinutes));
+    localStorage.setItem(LS_LONG, String(longBreakMinutes));
+    localStorage.setItem(LS_ALLOW_LONG, String(allowLongTimers));
+    localStorage.setItem(LS_AUTO_START, String(autoStartBreaks));
   }, [focusMinutes, shortBreakMinutes, longBreakMinutes, effectiveLongBreakMinutes, currentPhase, allowLongTimers, autoStartBreaks, isRunning]);
 
+  // Update tray icon state (if available)
   useEffect(() => {
-    window.electronAPI.setTrayState(isRunning ? "active" : "idle");
+    try {
+      window.electronAPI?.setTrayState?.(isRunning ? "active" : "idle");
+    } catch {}
   }, [isRunning]);
 
-  const autoSaveFocusTime = async () => {
+  // Auto-save focus time every minute
+  const autoSaveFocusTime = () => {
     const subject = focusSessionSubjectRef.current;
-
-    if (currentPhase !== "focus" || !focusStartRef.current || !subject) {
-      return;
-    }
+    if (currentPhase !== "focus" || !focusStartRef.current || !subject) return;
 
     const activeSeconds = Math.floor((Date.now() - focusStartRef.current) / 1000) - totalPausedSecondsRef.current;
 
     if (activeSeconds >= lastSaveSecondRef.current + 60) {
-      try {
-        const currentDate = localDateString();
-        await window.electronAPI.timerDb.addOrUpdateTimerData(subject, currentDate, 1);
-        lastSaveSecondRef.current += 60;
-        console.log(`[AutoSave] ✅ Saved 1m for "${subject}"`);
-      } catch (err) {
-        console.error(`[AutoSave] ❌ Failed to save for "${subject}":`, err);
-        setError(`Auto-save failed: ${String(err)}`);
-      }
+      const currentDate = getLocalDateString();
+      dataService.addTimerMinutes(subject, 1, currentDate);
+      lastSaveSecondRef.current += 60;
+      console.log(`[AutoSave] ✅ Saved 1m for "${subject}"`);
     }
   };
 
   useEffect(() => {
     if (isRunning && currentPhase === "focus" && focusSessionSubjectRef.current) {
-      console.log(`[AutoSave] Starting auto-save for "${focusSessionSubjectRef.current}"`);
       autoSaveIntervalRef.current = setInterval(() => {
         autoSaveFocusTime();
       }, 10000);
@@ -182,6 +168,7 @@ export default function TimerView() {
     };
   }, [isRunning, currentPhase]);
 
+  // Main timer tick
   useEffect(() => {
     if (!isRunning) {
       if (intervalRef.current) {
@@ -190,36 +177,31 @@ export default function TimerView() {
       return;
     }
 
-    console.log("[Timer] Starting timer");
     targetTimeRef.current = Date.now() + timeLeft * 1000;
 
-    const tick = async () => {
+    const tick = () => {
       const remaining = targetTimeRef.current ? Math.round((targetTimeRef.current - Date.now()) / 1000) : 0;
       setTimeLeft(remaining > 0 ? remaining : 0);
 
       if (remaining <= 0) {
-        console.log("[Timer] Timer completed");
         setIsRunning(false);
         setActiveControl(null);
 
+        // Show notification
+        try {
+          window.electronAPI?.notify?.(
+            currentPhase === "focus" ? "Pomodoro complete" : "Break ended",
+            currentPhase === "focus" ? "Focus session finished." : "Time to focus!"
+          );
+        } catch {}
+
         if (currentPhase === "focus") {
-          try {
-            await window.electronAPI.notify("Pomodoro complete", `Focus session finished.`);
-          } catch (err) {
-            console.error("[Timer] Notification failed:", err);
-          }
           setCurrentCycle((prev) => {
             const nextCycle = prev >= 4 ? (allowLongTimers ? 4 : 1) : prev + 1;
             setCurrentPhaseAndReset(nextCycle === 4 ? "long" : "short");
             return nextCycle;
           });
         } else {
-          try {
-            const breakType = currentPhase === "long" ? "Long break" : "Short break";
-            await window.electronAPI.notify("Break ended", `${breakType} finished — time to focus!`);
-          } catch (err) {
-            console.error("[Timer] Notification failed:", err);
-          }
           if (currentPhase === "long") {
             setCurrentCycle(1);
           }
@@ -238,6 +220,7 @@ export default function TimerView() {
     };
   }, [isRunning]);
 
+  // Pause tick for display
   const isPaused = !isRunning && !!pauseStartRef.current;
   useEffect(() => {
     let id: NodeJS.Timeout | null = null;
@@ -249,19 +232,18 @@ export default function TimerView() {
     };
   }, [isPaused]);
 
+  // Auto-start breaks
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
     if (autoStartBreaks && !isRunning && !isPaused && hasManuallyStartedRef.current) {
-      console.log("[AutoStart] Auto-starting next phase");
       handleStart();
     }
   }, [currentPhase, autoStartBreaks, isPaused]);
 
   function setCurrentPhaseAndReset(phase: TimerPhase) {
-    console.log(`[Phase] Switching to ${phase} phase`);
     setError(null);
     const total = Math.floor((phase === "focus" ? focusMinutes : phase === "short" ? shortBreakMinutes : effectiveLongBreakMinutes) * 60) || 1;
     phaseTotalSecondsRef.current = total;
@@ -276,8 +258,7 @@ export default function TimerView() {
     }
   }
 
-  async function handleStart() {
-    console.log("[Control] Start pressed");
+  function handleStart() {
     setError(null);
     const isResuming = !!pauseStartRef.current;
 
@@ -293,7 +274,6 @@ export default function TimerView() {
         lastSaveSecondRef.current = 0;
       }
       focusSessionSubjectRef.current = selectedSubject;
-      console.log(`[Control] Focus session subject: "${selectedSubject}"`);
     }
 
     if (isResuming) {
@@ -309,7 +289,6 @@ export default function TimerView() {
   }
 
   function handlePause() {
-    console.log("[Control] Pause pressed");
     if (!isRunning) return;
 
     setActiveControl("pause");
@@ -330,8 +309,7 @@ export default function TimerView() {
     }
   }
 
-  async function handleReset() {
-    console.log("[Control] Reset pressed");
+  function handleReset() {
     setActiveControl("reset");
     setTimeout(() => setActiveControl(null), 300);
     setIsRunning(false);
@@ -344,22 +322,18 @@ export default function TimerView() {
     setCurrentPhaseAndReset(currentPhase);
   }
 
-  async function handleSwitchPhase(phase: TimerPhase) {
+  function handleSwitchPhase(phase: TimerPhase) {
     if (isRunning) return;
     hasManuallyStartedRef.current = false;
     setCurrentPhaseAndReset(phase);
   }
 
-  async function handleSubjectChange(displayName: string) {
+  function handleSubjectChange(displayName: string) {
     const isPaused = !isRunning && !!pauseStartRef.current;
 
     if (isRunning) {
       setError("Cannot change subject while timer is running. Pause first.");
       return;
-    }
-
-    if (isPaused && currentPhase === "focus") {
-      console.log(`[Control] Changing subject while paused from "${selectedSubject}" to "${displayName}"`);
     }
 
     const normalizedName = displayName.toLowerCase();
@@ -368,95 +342,58 @@ export default function TimerView() {
 
       if (isPaused && currentPhase === "focus") {
         focusSessionSubjectRef.current = normalizedName;
-        console.log(`[Control] Updated paused session subject to "${normalizedName}"`);
       }
 
-      try {
-        localStorage.setItem(LS_SELECTED_NAME, normalizedName);
-      } catch (err) {
-        console.error("[Control] Failed to save subject:", err);
-      }
+      localStorage.setItem(LS_SELECTED_NAME, normalizedName);
     }
   }
 
-  async function handleAddSubject(name: string) {
+  function handleAddSubject(name: string) {
     if (isRunning) {
       setError("Cannot add subject while running. Pause first.");
       return;
     }
 
-    const normalized = String(name || "")
-      .trim()
-      .toLowerCase();
+    const normalized = String(name || "").trim().toLowerCase();
     if (!normalized) {
       setError("Subject name cannot be empty");
       return;
     }
 
-    const visibleSubjects = subjects.filter((subject) => !hiddenSubjects.includes(subject));
+    const visibleSubjects = subjects.filter(s => !hiddenSubjects.includes(s));
     if (visibleSubjects.length >= MAX_SUBJECTS) {
       setError(`Max ${MAX_SUBJECTS} subjects. Hide some to add more.`);
       return;
     }
 
-    try {
-      const exists = await window.electronAPI.timerDb.checkIfSubjectExists(normalized);
-
-      if (exists) {
-        if (!hiddenSubjects.includes(normalized)) {
-          setSelectedSubject(normalized);
-          localStorage.setItem(LS_SELECTED_NAME, normalized);
-        } else {
-          await window.electronAPI.timerDb.unhideSubject(normalized);
-          const updatedHidden = hiddenSubjects.filter((s) => s !== normalized);
-          setHiddenSubjects(updatedHidden);
-          saveHiddenSubjects(updatedHidden);
-          await loadSubjects();
-          setSelectedSubject(normalized);
-          localStorage.setItem(LS_SELECTED_NAME, normalized);
-        }
-      } else {
-        await window.electronAPI.timerDb.addOrUpdateTimerData(normalized, localDateString(), 0);
-        await loadSubjects();
-        setSelectedSubject(normalized);
-        localStorage.setItem(LS_SELECTED_NAME, normalized);
-      }
-    } catch (err) {
-      console.error("[Control] Failed to add subject:", err);
-      setError(`Failed to add subject: ${String(err)}`);
-    }
+    // Add subject via dataService
+    dataService.addSubject(normalized);
+    loadSubjects();
+    setSelectedSubject(normalized);
+    localStorage.setItem(LS_SELECTED_NAME, normalized);
   }
 
-  async function handleHideSubjectByName(displayName: string) {
+  function handleHideSubjectByName(displayName: string) {
     if (isRunning) {
       setError("Cannot hide subject while running. Pause first.");
       return;
     }
 
     const subjectName = displayName.toLowerCase();
-    if (!subjects.includes(subjectName)) {
-      return;
-    }
+    if (!subjects.includes(subjectName)) return;
 
-    try {
-      await window.electronAPI.timerDb.hideSubject(subjectName);
+    const nextHidden = [...hiddenSubjects, subjectName];
+    setHiddenSubjects(nextHidden);
+    saveHiddenSubjects(nextHidden);
 
-      const nextHidden = [...hiddenSubjects, subjectName];
-      setHiddenSubjects(nextHidden);
-      saveHiddenSubjects(nextHidden);
+    const visibleSubjects = subjects.filter(s => !nextHidden.includes(s));
+    const nextSelected = visibleSubjects.length > 0 ? visibleSubjects[0] : null;
 
-      const visibleSubjects = subjects.filter((subject) => !nextHidden.includes(subject));
-      const nextSelected = visibleSubjects.length > 0 ? visibleSubjects[0] : null;
-
-      setSelectedSubject(nextSelected);
-      if (nextSelected) {
-        localStorage.setItem(LS_SELECTED_NAME, nextSelected);
-      } else {
-        localStorage.removeItem(LS_SELECTED_NAME);
-      }
-    } catch (err) {
-      console.error("[Control] Failed to hide subject:", err);
-      setError(`Failed to hide subject: ${String(err)}`);
+    setSelectedSubject(nextSelected);
+    if (nextSelected) {
+      localStorage.setItem(LS_SELECTED_NAME, nextSelected);
+    } else {
+      localStorage.removeItem(LS_SELECTED_NAME);
     }
   }
 
@@ -469,7 +406,7 @@ export default function TimerView() {
     return s;
   })();
 
-  const visibleSubjectsForDisplay = subjects.filter((subject) => !hiddenSubjects.includes(subject)).map((subject) => formatSubjectName(subject));
+  const visibleSubjectsForDisplay = subjects.filter(s => !hiddenSubjects.includes(s)).map(s => formatSubjectName(s));
   const displaySelectedSubject = selectedSubject ? formatSubjectName(selectedSubject) : "";
 
   return (

@@ -8,12 +8,14 @@ import SettingsView from "../components/views/SettingsView";
 import TodoView from "../components/views/TodoView";
 import NotesView from "../components/views/NotesView";
 import LoginView from "../components/views/LoginView";
+import ChaptersView from "../components/views/ChaptersView";
 import useBackground from "../hooks/useBackground";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"timer" | "stats" | "settings" | "todo" | "notes">("timer");
+  const [activeTab, setActiveTab] = useState<"timer" | "stats" | "settings" | "todo" | "notes" | "chapters">("timer");
   const { backgrounds, handleBackgroundChange, removeBackground, getBackgroundForView } = useBackground();
 
   useEffect(() => {
@@ -23,12 +25,13 @@ export default function App() {
         try {
           const user = await window.electronAPI.auth.verify(storedId);
           if (user) {
+            setCurrentUser(user);
             setIsAuthenticated(true);
           } else {
             localStorage.removeItem("clarity_user_id");
             localStorage.removeItem("clarity_username");
           }
-        } catch {
+        } catch (err) {
           localStorage.removeItem("clarity_user_id");
         }
       }
@@ -36,6 +39,19 @@ export default function App() {
     };
     checkAuth();
   }, []);
+
+  const handleLogout = async () => {
+    await window.electronAPI.auth.logout();
+    localStorage.removeItem("clarity_user_id");
+    localStorage.removeItem("clarity_username");
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+  };
+
+  const handleLoginSuccess = (user: { id: string; username: string }) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+  };
 
   const currentBackground = getBackgroundForView(activeTab);
   const timerIsActive = activeTab === "timer";
@@ -47,7 +63,7 @@ export default function App() {
   }
 
   if (!isAuthenticated) {
-    return <LoginView onLoginSuccess={() => setIsAuthenticated(true)} />;
+    return <LoginView onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
@@ -121,9 +137,17 @@ export default function App() {
                   aria-hidden={overlayActive}
                 >
                   {!overlayActive && activeTab === "stats" && <StatsView />}
-                  {!overlayActive && activeTab === "settings" && <SettingsView backgrounds={backgrounds} onBackgroundChange={handleBackgroundChange} onRemoveBackground={removeBackground} />}
-                  {!overlayActive && activeTab === "todo" && <TodoView />}
+                  {!overlayActive && activeTab === "chapters" && <ChaptersView />}
                   {!overlayActive && activeTab === "notes" && <NotesView />}
+                  {!overlayActive && activeTab === "settings" && (
+                    <SettingsView 
+                      backgrounds={backgrounds} 
+                      onBackgroundChange={handleBackgroundChange} 
+                      onRemoveBackground={removeBackground}
+                      username={currentUser?.username}
+                      onLogout={handleLogout}
+                    />
+                  )}
                 </div>
               </div>
             </section>

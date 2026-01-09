@@ -1,4 +1,4 @@
-import { Clock, BarChart3, Settings, ListTodo, StickyNote } from "lucide-react";
+import { Clock, BarChart3, Settings, ListTodo, StickyNote, LayoutGrid } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import logo from "../assets/icon.ico";
 
@@ -13,6 +13,7 @@ export default function SidebarNav({ activeTab, setActiveTab }: SidebarNavProps)
     { key: "timer", label: "Timer", icon: Clock },
     { key: "stats", label: "Stats", icon: BarChart3 },
     { key: "todo", label: "Tasks", icon: ListTodo },
+    { key: "chapters", label: "Chapters", icon: LayoutGrid },
     { key: "notes", label: "Notes", icon: StickyNote },
     { key: "settings", label: "Settings", icon: Settings, bottom: true },
   ];
@@ -20,8 +21,8 @@ export default function SidebarNav({ activeTab, setActiveTab }: SidebarNavProps)
   return (
     <aside className="flex flex-col h-screen w-12 bg-[#0a0810]">
       {/* Header with logo */}
-      <div className="flex items-center justify-center px-0 py-3">
-        <img src={logo} alt="Logo" className="w-6 h-6 rounded" />
+      <div className="flex items-center justify-center py-6 cursor-move w-full hover:bg-white/5 transition-colors" style={{ WebkitAppRegion: "drag", appRegion: "drag" } as any}>
+        <img src={logo} alt="Logo" className="w-6 h-6 rounded" style={{ pointerEvents: "none" }} />
       </div>
 
       {/* Navigation */}

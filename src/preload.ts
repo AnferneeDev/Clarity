@@ -59,4 +59,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getViewBackgroundData: (view: string) => ipcRenderer.invoke("getViewBackgroundData", view),
   getAllBackgrounds: () => ipcRenderer.invoke("getAllBackgrounds"),
   removeViewBackground: (view: string) => ipcRenderer.invoke("removeViewBackground", view),
+
+  // Chapters
+  chapters: {
+    getAll: () => ipcRenderer.invoke("chapters:getAll"),
+    add: (chapter: any) => ipcRenderer.invoke("chapters:add", chapter),
+    update: (id: string, updates: any) => ipcRenderer.invoke("chapters:update", { id, updates }),
+    delete: (id: string) => ipcRenderer.invoke("chapters:delete", id),
+    uploadImage: (file: { name: string; data: Uint8Array }) => ipcRenderer.invoke("chapters:uploadImage", file),
+    getImage: (path: string) => ipcRenderer.invoke("chapters:getImage", path),
+  },
 });

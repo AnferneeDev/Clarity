@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Label } from "@/components/ui/label";
 
 interface LoginViewProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (user: { id: string; username: string }) => void;
 }
 
 export default function LoginView({ onLoginSuccess }: LoginViewProps) {
@@ -33,14 +33,14 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
         } else {
           localStorage.setItem("clarity_user_id", res.id);
           localStorage.setItem("clarity_username", res.username);
-          onLoginSuccess();
+          onLoginSuccess({ id: res.id, username: res.username });
         }
       } else {
         const user = await window.electronAPI.auth.login(username, password);
         if (user) {
           localStorage.setItem("clarity_user_id", user.id);
           localStorage.setItem("clarity_username", user.username);
-          onLoginSuccess();
+          onLoginSuccess(user);
         } else {
           setError("Invalid username or password");
         }

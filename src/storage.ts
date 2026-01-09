@@ -47,6 +47,16 @@ export interface Todo {
   createdAt: string;
 }
 
+export interface Chapter {
+  id: string;
+  userId: string;
+  title: string;
+  coverImage?: string; // path relative to userData
+  icon?: string;
+  clear: boolean;
+  createdAt: string;
+}
+
 export interface Note {
   id: number;
   userId: string;
@@ -61,13 +71,19 @@ export interface AppData {
   subjects: Subject[];
   sessions: TimerSession[];
   todos: Todo[];
+  chapters: Chapter[];
   notes: Note[];
-  backgrounds: Record<string, string>; // view -> relative path (shared or user-prefixed?) -> keeping simple for now
-  settings: Record<string, { // userId -> settings
+  backgrounds: Record<string, string>; // view -> relative path
+  settings: Record<string, {
     focusMinutes: number;
     shortBreakMinutes: number;
     longBreakMinutes: number;
   }>;
+  syncMetadata?: {
+    userId: string;
+    localLastUpdatedAt: string;
+    serverLastUpdatedAt: string;
+  };
 }
 
 // ============================================
@@ -79,6 +95,7 @@ const DEFAULT_DATA: AppData = {
   subjects: [],
   sessions: [],
   todos: [],
+  chapters: [],
   notes: [],
   backgrounds: {},
   settings: {},
@@ -138,10 +155,10 @@ function seedInitialData(data: AppData) {
   });
 
   // Distribute Time
-  // range1: June 29, 2025 to Jan 8, 2026 (194 days)
-  const range1Dates = getDatesBetween("2025-06-29", "2026-01-08");
-  // range2: Dec 9, 2025 to Jan 8, 2026 (31 days)
-  const range2Dates = getDatesBetween("2025-12-09", "2026-01-08");
+  // range1: June 29, 2025 to Jan 7, 2026 (Yesterday)
+  const range1Dates = getDatesBetween("2025-06-29", "2026-01-07");
+  // range2: Dec 9, 2025 to Jan 7, 2026 (Yesterday)
+  const range2Dates = getDatesBetween("2025-12-09", "2026-01-07");
 
   const distribute = (subject: string, totalMinutes: number, dates: string[]) => {
     const minPerDay = Math.floor(totalMinutes / dates.length);
@@ -247,6 +264,37 @@ function seedInitialData(data: AppData) {
     id: 10, userId, title: "Resources", color: "#ffffff", createdAt: "2025-12-15T16:06:05.903Z",
     content: "lawsofux.com"
   });
+
+  // Chapters (From User Screenshot)
+  const chapters = [
+    { title: "Master HTML", icon: "🌐" },
+    { title: "Whop app", icon: "📱" },
+    { title: "Diaphragm breathing for workout and singing", icon: "🗣️" },
+    { title: "Copywriting", icon: "✍️" },
+    { title: "Jordan Peterson's patter of speech", icon: "🧠" },
+    { title: "Network MORE!!!!", icon: "🤝" },
+    { title: "First Upwork customer", icon: "💼" },
+    { title: "Take care of myself", icon: "💖" },
+    { title: "Tolerance (calm)", icon: "😌" },
+    { title: "5th person thinking (I AM NOT MY MIND)", icon: "🧘" },
+    { title: "Fortitude", icon: "🛡️" },
+    { title: "Resilience", icon: "💪" },
+    { title: "Adaptability", icon: "🦎" },
+    { title: "Learn how to sell", icon: "💸" },
+    { title: "9 PM, dodge the clubs, the girls, and be at bed at 9pm", icon: "🛌" }
+  ];
+
+  chapters.forEach((c, i) => {
+    data.chapters.push({
+      id: `chap-${i}`,
+      userId,
+      title: c.title,
+      icon: c.icon,
+      coverImage: undefined,
+      clear: false,
+      createdAt: new Date().toISOString()
+    });
+  });
   
   console.log("[Seeding] Successfully seeded data for user Anfernee");
 }
@@ -271,6 +319,80 @@ export function loadData(): AppData {
       } else if (dataCache.users.length === 0) {
          seedInitialData(dataCache);
          saveData(dataCache);
+      } else {
+        // Migration: Check if we need to seed specific chapters (User requested)
+        // We check if "Master HTML" exists. If not, we seed/append them.
+        const hasMasterHTML = dataCache.chapters && dataCache.chapters.some(c => c.title === "Master HTML");
+        
+        if (!hasMasterHTML) {
+           console.log("[Storage] Seeding requested chapters for existing user...");
+           if (!dataCache.chapters) dataCache.chapters = [];
+           
+           // Chapters from User Screenshot
+           const userId = dataCache.users[0].id; // Assign to first user (Admin/Default)
+           const chapters = [
+                { title: "Master HTML", icon: "🌐" },
+                { title: "Whop app", icon: "📱" },
+                { title: "Diaphragm breathing for workout and singing", icon: "🗣️" },
+                { title: "Copywriting", icon: "✍️" },
+                { title: "Jordan Peterson's patter of speech", icon: "🧠" },
+                { title: "Network MORE!!!!", icon: "🤝" },
+                { title: "First Upwork customer", icon: "💼" },
+                { title: "Take care of myself", icon: "💖" },
+                { title: "Tolerance (calm)", icon: "😌" },
+                { title: "5th person thinking (I AM NOT MY MIND)", icon: "🧘" },
+                { title: "Fortitude", icon: "🛡️" },
+                { title: "Resilience", icon: "💪" },
+                { title: "Adaptability", icon: "🦎" },
+                { title: "Learn how to sell", icon: "💸" },
+                { title: "9 PM, dodge the clubs, the girls, and be at bed at 9pm", icon: "🛌" }
+            ];
+
+            chapters.forEach((c, i) => {
+                // Double check duplicates before adding
+                if (!dataCache!.chapters.some(existing => existing.title === c.title)) {
+                    dataCache!.chapters.push({
+                        id: `chap-seed-${i}`,
+                        userId,
+                        title: c.title,
+                        icon: c.icon,
+                        coverImage: undefined,
+                        clear: false,
+                        createdAt: new Date().toISOString()
+                    });
+                }
+            });
+            saveData(dataCache);
+        }
+        // QUICK FIX for the "13h" bug:
+        // Remove the accidental distribution for 2026-01-08 if it exists in sessions
+        // We identify them by ID or just filtering.
+        // The distribution IDs are `sess-{subject}-{date}`.
+        // We want to KEEP `sess-extra-...` or manually created ones.
+        // We want to DELETE `sess-{subject}-2026-01-08` if it looks like a distribution entry?
+        // Actually, easiest is to just wipe sessions for 2026-01-08 that come from "distribution" subjects IF they are not extras.
+        // But IDs are reliable: `sess-programming-2026-01-08`.
+        // Extras allow duplicates? No, unique IDs.
+        
+        const today = "2026-01-08";
+        const subjects = ["programming", "typescript", "trading", "work"];
+        // Remove distributed entries for today to fix the "13h" bug for existing users
+        const beforeCount = dataCache.sessions.length;
+        dataCache.sessions = dataCache.sessions.filter(s => {
+           // If it matches session ID pattern for distribution AND is today
+           // Distribution ID format: `sess-${subject}-${date}`
+           if (s.date === today && subjects.includes(s.subjectName)) {
+             if (s.id === `sess-${s.subjectName}-${today}`) {
+                return false; // Delete it
+             }
+           }
+           return true;
+        });
+        
+        if (dataCache.sessions.length !== beforeCount) {
+           console.log("[Storage] auto-fixed Jan 8 distribution overlap.");
+           saveData(dataCache);
+        }
       }
 
     } else {
@@ -595,4 +717,54 @@ export function removeBackground(view: string): void {
   const data = loadData();
   delete data.backgrounds[view];
   saveData(data);
+}
+
+// ============================================
+// Chapters
+// ============================================
+
+export function getAllChapters(userId: string): Chapter[] {
+  const data = loadData();
+  return (data.chapters || []).filter(c => c.userId === userId);
+}
+
+export function addChapter(userId: string, chapter: Omit<Chapter, "id" | "userId" | "createdAt">): Chapter {
+  const data = loadData();
+  const newChapter: Chapter = {
+    id: crypto.randomUUID(),
+    userId,
+    ...chapter,
+    createdAt: new Date().toISOString()
+  };
+  
+  if (!data.chapters) data.chapters = [];
+  data.chapters.push(newChapter);
+  saveData(data);
+  return newChapter;
+}
+
+export function updateChapter(userId: string, id: string, updates: Partial<Chapter>): boolean {
+  const data = loadData();
+  if (!data.chapters) return false;
+  
+  const idx = data.chapters.findIndex(c => c.id === id && c.userId === userId);
+  if (idx === -1) return false;
+  
+  data.chapters[idx] = { ...data.chapters[idx], ...updates };
+  saveData(data);
+  return true;
+}
+
+export function deleteChapter(userId: string, id: string): boolean {
+  const data = loadData();
+  if (!data.chapters) return false;
+  
+  const initialLength = data.chapters.length;
+  data.chapters = data.chapters.filter(c => !(c.id === id && c.userId === userId));
+  
+  if (data.chapters.length !== initialLength) {
+    saveData(data);
+    return true;
+  }
+  return false;
 }

@@ -137,6 +137,7 @@ export default function TodoView() {
   });
 
   return (
+
     <div className="w-full h-full flex flex-col p-2">
       <div className="mb-4">
         <h1 className="text-3xl font-bold text-white mb-1" style={{ fontFamily: "Segoe UI, system-ui, sans-serif" }}>
@@ -156,11 +157,11 @@ export default function TodoView() {
               />
 
               <div className="flex-1 min-w-0">
-                <div className={`text-gray-900 ${todo.done ? "line-through opacity-60" : ""}`}>{todo.text}</div>
+                <div className={`text-gray-900 font-medium ${todo.done ? "line-through opacity-60" : ""}`}>{todo.text}</div>
 
                 <div className="flex items-center gap-3 mt-1">
                   {todo.dueDate && (
-                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <div className="flex items-center gap-1 text-xs text-gray-500 font-medium">
                       <CalendarIcon className="w-3 h-3" />
                       {formatDateForDisplay(todo.dueDate)}
                     </div>
@@ -182,7 +183,7 @@ export default function TodoView() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`h-7 w-7 transition-all duration-200 ${todo.starred ? "text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50" : "text-gray-400 hover:text-yellow-500 hover:bg-gray-100"}`}
+                  className={`h-7 w-7 transition-all duration-200 font-medium ${todo.starred ? "text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50" : "text-gray-400 hover:text-yellow-500 hover:bg-gray-100"}`}
                   onClick={() => toggleStar(todo.id)}
                 >
                   <Star className={`h-4 w-4 ${todo.starred ? "fill-current" : ""}`} />
@@ -191,7 +192,7 @@ export default function TodoView() {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-7 w-7 transition-all duration-200 text-gray-400 hover:text-red-500 hover:bg-red-50" 
+                  className="h-7 w-7 transition-all duration-200 text-gray-400 hover:text-red-500 hover:bg-red-50 font-medium" 
                   onClick={() => deleteTodo(todo.id)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -204,7 +205,7 @@ export default function TodoView() {
 
       <div className="mt-4 input-glass-compact transition-all duration-200">
         <div className="flex items-center gap-3 h-full">
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-800 hover:bg-gray-800/20 transition-colors" onClick={addTask}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-800 hover:bg-gray-800/20 transition-colors font-medium" onClick={addTask}>
             <Plus className="h-4 w-4 stroke-2" />
           </Button>
 
@@ -215,7 +216,7 @@ export default function TodoView() {
               value={newTaskText}
               onChange={(e) => setNewTaskText(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && addTask()}
-              className="w-full h-full bg-transparent text-white placeholder:text-white/80 text-base focus:outline-none focus:ring-0"
+              className="w-full h-full bg-transparent text-white placeholder:text-white/80 text-base font-medium focus:outline-none focus:ring-0"
             />
           </div>
         </div>

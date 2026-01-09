@@ -1,19 +1,22 @@
-import { Settings, Trash2, Wallpaper, Clock, BarChart3, ListTodo, StickyNote } from "lucide-react";
+import { Settings, Trash2, Wallpaper, Clock, BarChart3, ListTodo, StickyNote, User, LogOut, LayoutGrid } from "lucide-react";
 import { Button } from "../ui/button";
 
-type ViewType = "timer" | "stats" | "settings" | "todo" | "notes";
+type ViewType = "timer" | "stats" | "settings" | "todo" | "notes" | "chapters";
 
 interface SettingsViewProps {
   backgrounds: Record<ViewType, string>;
   onBackgroundChange: (view: ViewType, e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveBackground: (view: ViewType) => void;
+  username?: string;
+  onLogout?: () => void;
 }
 
-export default function SettingsView({ backgrounds, onBackgroundChange, onRemoveBackground }: SettingsViewProps) {
+export default function SettingsView({ backgrounds, onBackgroundChange, onRemoveBackground, username, onLogout }: SettingsViewProps) {
   const sections: { key: ViewType; label: string; icon: React.ComponentType<any> }[] = [
     { key: "timer", label: "Timer", icon: Clock },
     { key: "stats", label: "Stats", icon: BarChart3 },
     { key: "todo", label: "Tasks", icon: ListTodo },
+    { key: "chapters", label: "Chapters", icon: LayoutGrid },
     { key: "notes", label: "Notes", icon: StickyNote },
     { key: "settings", label: "Settings", icon: Settings },
   ];
@@ -26,7 +29,29 @@ export default function SettingsView({ backgrounds, onBackgroundChange, onRemove
         <h2 className="text-2xl md:text-3xl font-bold text-white">Settings</h2>
       </div>
 
-      {/* === Background Section - 2 Column Grid === */}
+      {/* === Account Section === */}
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-white mb-3">Account</h3>
+        <div className="glass-card p-4 rounded-xl border border-gray-700/50 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+             <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+               <User className="w-5 h-5 text-blue-400" />
+             </div>
+             <div>
+               <div className="text-sm text-gray-400">Signed in as</div>
+               <div className="text-white font-medium">{username || "User"}</div>
+             </div>
+          </div>
+          
+          <Button onClick={onLogout} variant="destructive" size="sm" className="flex items-center gap-2">
+            <LogOut className="w-4 h-4" />
+            Logout
+          </Button>
+        </div>
+      </div>
+
+      {/* === Background Section === */}
+      <h3 className="text-lg font-semibold text-white mb-3">Custom Backgrounds</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {sections.map((section) => {
           const IconComponent = section.icon;

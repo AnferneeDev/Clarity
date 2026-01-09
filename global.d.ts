@@ -48,6 +48,16 @@ declare global {
       getViewBackgroundData: (view: string) => Promise<string | null>;
       getAllBackgrounds: () => Promise<Record<string, string>>;
       removeViewBackground: (view: string) => Promise<boolean>;
+
+      // Chapters
+      chapters: {
+        getAll: () => Promise<any[]>;
+        add: (chapter: { title: string; coverImage?: string; icon?: string; clear: boolean }) => Promise<any>;
+        update: (id: string, updates: any) => Promise<boolean>;
+        delete: (id: string) => Promise<boolean>;
+        uploadImage: (file: { name: string; data: Uint8Array }) => Promise<string | null>;
+        getImage: (path: string) => Promise<string | null>;
+      };
     };
   }
 

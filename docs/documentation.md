@@ -1,360 +1,136 @@
-# Clarity - Project Mental Map & Documentation
+# Clarity v2 - System Documentation
 
-> **Clarity** is an Electron-based productivity app featuring a Pomodoro timer, statistics tracking, todos, notes, and customizable backgrounds.
+This document provides a comprehensive overview of the Clarity v2 codebase, its architecture, data structures, and key feature implementations. It is designed to be a reference for future development and maintenance.
 
----
+## 1. System Architecture
 
-## 🗺️ Architecture Overview
+Clarity v2 is a **local-first** Electron application built with React, Vite, and TypeScript. It uses a "Hybrid" architecture where:
 
-```mermaid
-graph TB
-    subgraph Renderer["🖥️ RENDERER (React)"]
-        App["App.tsx"]
-        App --> TimerView["TimerView"]
-        App --> StatsView["StatsView"]
-        App --> TodoView["TodoView"]
-        App --> NotesView["NotesView"]
-        App --> SettingsView["SettingsView"]
-        App --> SidebarNav["SidebarNav"]
-    end
+- **Frontend (Renderer):** Handles UI and user interaction (React/Shadcn).
+- **Backend (Main Process):** Handles persistence, accessing the file system, and heavy logic (Node.js).
+- **Communication:** Uses Electron IPC (Inter-Process Communication) via a strictly typed `preload.ts` bridge.
 
-    subgraph Bridge["🔌 IPC BRIDGE"]
-        Preload["preload.ts"]
-    end
+### Directory Structure
 
-    subgraph Main["⚙️ MAIN PROCESS"]
-        MainTS["main.ts"]
-        MainTS --> Database["Database Layer"]
-    end
-
-    subgraph DB["💾 DATABASE LAYER"]
-        Database --> CsvDb["csvDb.ts (CSV files)"]
-        Database --> TimerDb["timerDatabase.ts (Timer CSV)"]
-        Database --> Store["store.ts (electron-store JSON)"]
-    end
-
-    subgraph Files["📁 DATA FILES (userData)"]
-        CsvDb --> SubjectsCSV["subjects.csv"]
-        CsvDb --> TodosCSV["todos.csv"]
-        CsvDb --> NotesCSV["notes.csv"]
-        CsvDb --> SettingsCSV["settings.csv"]
-        TimerDb --> TimerCSV["timer_data.csv"]
-        TimerDb --> HiddenCSV["hidden_subjects.csv"]
-        Store --> PomodoroJSON["pomodoro-store.json"]
-    end
-
-    Renderer <--> Bridge
-    Bridge <--> Main
+```
+root
+├── src
+│   ├── main.ts         # Main process entry point (Node.js)
+│   ├── preload.ts      # IPC Bridge (Exposes API to Renderer)
+│   ├── storage.ts      # Local JSON Data Persistence Logic
+│   ├── timeUtils.ts    # Date/Time Utilities (Shared)
+│   ├── App.tsx         # Main React Component
+│   ├── hooks/          # React Hooks (useBackground, etc.)
+│   └── components/     # UI Components (Views, Sidebar, etc.)
+└── ...
 ```
 
 ---
 
-## 📁 Folder Structure
+## 2. Data Persistence (Local JSON) -> `storage.ts`
 
-```
-clarity/
-├── src/                          # Main process code
-│   ├── main.ts                   # Electron main entry, IPC handlers
-│   ├── preload.ts                # Context bridge (exposes electronAPI)
-│   ├── App.tsx                   # React root component
-│   ├── renderer.tsx              # React entry point
-│   ├── db.ts                     # Re-export of database
-│   ├── timeUtils.ts              # Time formatting utilities
-│   ├── notifications.ts          # Notification & reminder system
-│   ├── database/                 # All database modules
-│   │   ├── index.ts              # Entry point, migrations, exports
-│   │   ├── csvDb.ts              # CSV database for subjects/todos/notes/settings
-│   │   ├── timerDatabase.ts      # Timer-specific CSV database
-│   │   ├── store.ts              # electron-store for sessions/stats
-│   │   ├── crud.ts               # Generic CRUD operations
-│   │   ├── todos.ts              # Todo-specific helpers
-│   │   ├── timer.ts              # Timer session helpers
-│   │   ├── background.ts         # Background image storage
-│   │   └── aggregators.ts        # Stats aggregation functions
-│   ├── styles/                   # Global styles
-│   └── types/                    # TypeScript type definitions
-│
-├── components/                   # React components
-│   ├── views/                    # Main view components
-│   │   ├── TimerView.tsx         # Pomodoro timer (523 lines)
-│   │   ├── StatsView.tsx         # Statistics wrapper
-│   │   ├── StatsDisplay.tsx      # Statistics charts/tables
-│   │   ├── TodoView.tsx          # Task management
-│   │   ├── NotesView.tsx         # Notes editor
-│   │   └── SettingsView.tsx      # Background settings
-│   ├── TimerCard.tsx             # Timer display component
-│   ├── SetupCard.tsx             # Timer setup/config
-│   ├── SidebarNav.tsx            # Navigation sidebar
-│   ├── Check.tsx                 # Checkbox component
-│   └── ui/                       # shadcn/ui components (18 files)
-│
-├── hooks/                        # Custom React hooks
-│   ├── useBackground.ts          # View background management
-│   ├── usePomodoroTimer.ts       # Timer state hook
-│   └── use-mobile.ts             # Mobile detection
-│
-├── lib/                          # Utilities
-│   └── utils.ts                  # cn() helper for Tailwind
-│
-├── assets/                       # Static assets
-├── public/                       # Public files
-├── resources/                    # Electron resources (icons, etc.)
-└── docs/                         # Documentation (you are here)
+The application stores all user data in a single JSON file located at `%APPDATA%/clarity/clarity-data.json`.
+The logic for reading/writing this file is encapsulated in `src/storage.ts`.
+
+### JSON Schema (`AppData`)
+
+The root object `AppData` contains:
+
+| Key           | Type                     | Description                                             |
+| :------------ | :----------------------- | :------------------------------------------------------ |
+| `users`       | `User[]`                 | List of registered users (password hashed with PBKDF2). |
+| `subjects`    | `Subject[]`              | Activities tracked (e.g., Programming, Work).           |
+| `sessions`    | `TimerSession[]`         | Log of completed focus sessions.                        |
+| `todos`       | `Todo[]`                 | User tasks.                                             |
+| `notes`       | `Note[]`                 | Simple text notes.                                      |
+| `chapters`    | `Chapter[]`              | Life Chapters/boards (New Feature).                     |
+| `backgrounds` | `Record<string, string>` | Custom backgrounds per view.                            |
+| `settings`    | `Record<string, ...>`    | User-specific settings (timers, etc).                   |
+
+### Important Implementation Details
+
+- **Seeding:** If the data file is missing or empty, `storage.ts` automatically runs `seedInitialData()` to populate it with default user 'Anfernee' and historical data.
+- **Daily Distribution Logic:** The seeding logic distributes ~45k minutes of historical "Programming" time across dates from June 2025 to Jan 2026. _Note: Ensure this does not overlap with real-time usage (fixed in Jan 2026)._
+
+---
+
+## 3. "Life Chapters" Feature
+
+A specialized view for high-level life management, inspired by Notion boards.
+
+- **View:** `ChaptersView.tsx` (Gallery Grid Layout).
+- **Data Model:**
+  ```typescript
+  interface Chapter {
+    id: string; // UUID
+    userId: string;
+    title: string;
+    coverImage?: string; // Path to image (initially local)
+    icon?: string; // Emoji
+    clear: boolean; // "Done/Archived" state
+    createdAt: string;
+  }
+  ```
+- **Image Handling:** Cover images are uploaded via `ipcRenderer.invoke("chapters:uploadImage", file)`. The main process saves these files to `%APPDATA%/clarity/uploads/` and returns the path.
+
+---
+
+## 4. Supabase Integration Strategy
+
+The application is "Supabase Ready". We use UUIDs and structure our local data to mirror the planned SQL schema.
+
+### Database Schema (SQL)
+
+To be deployed to Supabase:
+
+- **`profiles`**: Extends `auth.users`.
+- **`subjects`**: Tracked activities.
+- **`sessions`**: Time logs.
+- **`todos`**: Tasks.
+- **`notes`**: Notes.
+- **`chapters`**: Life Chapters.
+
+### SQL Migration
+
+Use the provided `supabase_setup.sql` (or `chapters_migration.sql`) to create these tables. RLS (Row Level Security) is enabled on ALL tables to ensure users only access their own data.
+
+```sql
+-- Example Chapters Table
+CREATE TABLE public.chapters (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+     ...
+);
+ALTER TABLE public.chapters ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own chapters" ON public.chapters FOR SELECT USING (auth.uid() = user_id);
 ```
 
 ---
 
-## 🖥️ Views (Features)
+## 5. Time Tracking & Analytics
 
-### 1. ⏱️ Timer View (`TimerView.tsx`)
+- **Tracking:** `TimerView.tsx` uses a React Context (`TimerContext`) to manage the countdown. When a session completes, it calls `window.electronAPI.timerDb.addSession(...)`.
+- **Analytics:** `StatsDisplay.tsx` fetches aggregated data via IPC:
+  - `getSubjectTotals`: Total minutes per subject.
+  - `getDailyAggregated`: Total minutes per day (for heatmaps/graphs).
+- **Timezones:** All dates are stored as `YYYY-MM-DD` strings based on the _user's local time_ (handled by `timeUtils.ts`). This avoids UTC shifting issues where late-night work counts as the "next day".
 
-**The core Pomodoro timer functionality.**
+## 6. API Reference (IPC)
 
-| Feature             | Description                                    |
-| ------------------- | ---------------------------------------------- |
-| **Phases**          | Focus, Short Break, Long Break                 |
-| **Subjects**        | Track time per subject/topic                   |
-| **Auto-save**       | Saves progress every minute when running       |
-| **Hidden subjects** | Can hide subjects from dropdown (localStorage) |
-| **Configurable**    | Focus/break durations stored in localStorage   |
+The `window.electronAPI` object exposed to the frontend includes:
 
-**Key State:**
-
-- `focusMinutes`, `shortBreakMinutes`, `longBreakMinutes`
-- `currentPhase`: "focus" | "short_break" | "long_break"
-- `subjects`: Array of subject names
-- `selectedSubjectName`: Currently selected subject
-
-**Data Flow:**
-
-```
-TimerView → window.electronAPI.timerDb.addOrUpdateTimerData() → timerDatabase.ts → timer_data.csv
-         → window.electronAPI.saveSessionProgress() → store.ts → pomodoro-store.json
-```
+- **`auth`**: `login`, `register`, `verify`, `logout`.
+- **`timerDb`**: `addSession`, `getSubjects`, `getDailyAggregatedData`, etc.
+- **`todos`**: `getAll`, `add`, `update`, `delete`.
+- **`notes`**: `getAll`, `add`, `update`, `delete`.
+- **`chapters`**: `getAll`, `add`, `update`, `delete`, `uploadImage`.
+- **`system`**: `minimizeWindow`, `closeWindow`, `toggleMaximize`, `isMaximized`.
 
 ---
 
-### 2. 📊 Stats View (`StatsView.tsx` + `StatsDisplay.tsx`)
+## 7. Development & Debugging
 
-**Displays tracked time statistics.**
-
-| Feature               | Description                 |
-| --------------------- | --------------------------- |
-| **View Modes**        | Progress view, Table view   |
-| **Date Filtering**    | Week, Month, Year, All Time |
-| **Subject Breakdown** | Bar chart per subject       |
-| **Daily Totals**      | Line chart over time        |
-
-**Data Source:** Fetches sessions via `getSessionsForMonth()`
-
----
-
-### 3. ✅ Todo View (`TodoView.tsx`)
-
-**Task management with due dates and reminders.**
-
-| Feature         | Description                  |
-| --------------- | ---------------------------- |
-| **Tasks**       | Add, complete, star, delete  |
-| **Due Dates**   | Date + time picker           |
-| **Reminders**   | Native OS notifications      |
-| **Date Scoped** | Shows todos for current date |
-
-**Data Flow:**
-
-```
-TodoView → window.electronAPI.addTodo() → main.ts IPC → csvDb.ts → todos.csv
-```
-
----
-
-### 4. 📝 Notes View (`NotesView.tsx`)
-
-**Sticky note-style notes.**
-
-| Feature             | Description                          |
-| ------------------- | ------------------------------------ |
-| **Create/Delete**   | Add/remove notes                     |
-| **Colors**          | 8 color options per note             |
-| **Auto-save**       | Debounced save on content change     |
-| **Title + Content** | Each note has editable title/content |
-
-**Data Flow:**
-
-```
-NotesView → window.electronAPI.insert("notes", data) → csvDb.ts → notes.csv
-```
-
----
-
-### 5. ⚙️ Settings View (`SettingsView.tsx`)
-
-**Customize view backgrounds.**
-
-| Feature                  | Description                                |
-| ------------------------ | ------------------------------------------ |
-| **Per-view backgrounds** | Set image for each view                    |
-| **File upload**          | Supports jpg, png, gif, webp, bmp          |
-| **Size limit**           | 10MB max                                   |
-| **Fallback**             | Falls back to timer background if none set |
-
----
-
-## 💾 Database Architecture
-
-### Current Storage System (CSV-based)
-
-#### 1. `csvDb.ts` - Main CSV Database
-
-Manages: `subjects.csv`, `todos.csv`, `notes.csv`, `settings.csv`
-
-```typescript
-interface Subject {
-  id;
-  name;
-  created_at;
-}
-interface Todo {
-  id;
-  date;
-  text;
-  done;
-  starred;
-  due_date;
-  created_at;
-}
-interface Note {
-  id;
-  title;
-  content;
-  color;
-  created_at;
-}
-interface Setting {
-  key;
-  value;
-}
-```
-
-#### 2. `timerDatabase.ts` - Timer-specific Database
-
-Manages: `timer_data.csv`, `hidden_subjects.csv`
-
-```typescript
-interface TimerData {
-  id;
-  subject;
-  date;
-  total_minutes;
-  last_updated;
-}
-interface HiddenSubject {
-  id;
-  subject;
-  hidden_at;
-}
-```
-
-#### 3. `store.ts` - Electron Store (JSON)
-
-File: `pomodoro-store.json`
-
-```typescript
-interface Schema {
-  schemaVersion: number;
-  settings: { minutesPerPomodoro; minutesPerBreak; minutesPerLongBreak };
-  subjectTotals: Record<string, { totalTime: number }>;
-  totalTime: number;
-  dailyStats: DailyStat[];
-  sessions: SessionRow[];
-}
-```
-
-### Data File Locations
-
-All stored in Electron's `userData` path:
-
-- **Windows:** `%APPDATA%/clarity/`
-- **macOS:** `~/Library/Application Support/clarity/`
-- **Linux:** `~/.config/clarity/`
-
----
-
-## 🔌 IPC Communication
-
-### Bridge Pattern
-
-```
-Renderer → preload.ts (contextBridge) → main.ts (ipcMain.handle) → Database
-```
-
-### Key API Endpoints (`window.electronAPI`)
-
-| Category          | Methods                                                                                                                    |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **Timer**         | `timerDb.addOrUpdateTimerData()`, `timerDb.getAllSubjects()`, `timerDb.hideSubject()`, `timerDb.deleteSubjectCompletely()` |
-| **Sessions**      | `startSession()`, `completeSession()`, `saveSessionProgress()`, `getAllSessions()`, `getSessionsForMonth()`                |
-| **Todos**         | `getTodosByDate()`, `addTodo()`, `updateTodo()`, `deleteTodo()`, `getStarredTodos()`                                       |
-| **Notes**         | `query("notes")`, `insert("notes")`, `update("notes")`, `remove("notes")`                                                  |
-| **Backgrounds**   | `setViewBackground()`, `getViewBackground()`, `removeViewBackground()`, `getAllBackgrounds()`                              |
-| **Notifications** | `notify()`, `playSound()`, `addReminder()`, `removeReminder()`                                                             |
-
----
-
-## 🚨 Known Issues / Tech Debt
-
-1. **Dual Data Storage**: Timer data stored in BOTH `timerDatabase.ts` (CSV) AND `store.ts` (JSON) - duplicated logic
-2. **No User Authentication**: Single-user local storage only
-3. **No Cloud Sync**: All data is local
-4. **Mixed Conventions**: Some views use direct IPC, others use generic CRUD
-5. **Large Components**: `TimerView.tsx` is 523 lines, `StatsDisplay.tsx` is 600+ lines
-
----
-
-## 🔜 Planned Migration: CSV → Supabase
-
-### Current State
-
-```
-Local CSV/JSON Files → File System
-```
-
-### Target State
-
-```
-Supabase PostgreSQL → Cloud Database
-```
-
-### Migration Considerations:
-
-1. **Users Table** - Add authentication
-2. **RLS (Row Level Security)** - Ensure users only see their data
-3. **Schema Design** - Map existing CSV structures to SQL tables
-4. **Offline Support** - Consider local-first with sync
-5. **Migration Script** - Import existing CSV data
-
----
-
-## 📋 Quick Reference
-
-### Run Commands
-
-```bash
-# Development
-npm run start
-
-# Build
-npm run build
-npm run make        # Create distributable
-
-# Lint
-npm run lint
-```
-
-### Tech Stack
-
-- **Framework:** Electron (Vite)
-- **Frontend:** React + TypeScript
-- **Styling:** Tailwind CSS + shadcn/ui
-- **Storage:** CSV (papaparse) + electron-store
-- **Build:** Electron Forge
+- **Run Dev:** `npm run dev` (starts Vite server & Electron).
+- **Data Location:** `%APPDATA%\roaming\clarity` (Windows).
+- **Logs:** Check the terminal for Main process logs, and DevTools Console for Renderer logs.

@@ -3,14 +3,22 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Progress } from "../ui/progress";
 import { 
-  Heart, Zap, Shield, Swords, Skull, CheckCircle2, 
-  Plus, Trash2, Activity, Trophy, Camera
+  Heart, Zap, Swords, Skull, CheckCircle2, 
+  Plus, Trash2, Activity, Trophy
 } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "../ui/popover";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
 
 interface GameSkill {
   id: string;
@@ -176,116 +184,26 @@ export default function GameView() {
   };
 
   // UI Components
-  const Hearts = ({ hp, maxHp }: { hp: number, maxHp: number }) => {
-    const hearts = [];
-    const count = Math.ceil(maxHp / 10);
-    const filled = Math.ceil(hp / 10);
-    
-    for (let i = 0; i < count; i++) {
-      hearts.push(
-        <Heart 
-          key={i} 
-          className={`w-5 h-5 ${i < filled ? "fill-red-500 text-red-500" : "text-gray-600"}`} 
-        />
-      );
-    }
-    return <div className="flex flex-wrap gap-1">{hearts}</div>;
-  };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Convert to base64 for storage
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const base64 = event.target?.result as string;
-      await window.electronAPI.game.updateCharacter({ avatar: base64 });
-      loadData();
-    };
-    reader.readAsDataURL(file);
-  };
 
   return (
     <div className="w-full h-full p-4 overflow-y-auto text-white space-y-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Trophy className="w-6 h-6 text-white" />
+        <h1 className="text-2xl font-bold text-white">Habits</h1>
+      </div>
       {/* Top Section: Character & Skills - always in same row */}
-      <div className="grid grid-cols-3 gap-4">
-        
-        {/* Character Card - glass-card style */}
-        <div className="col-span-1 glass-card border border-glass-border rounded-2xl p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Shield className="w-5 h-5 text-yellow-500" /> Character
-            </h2>
-            <div className="bg-yellow-500/20 text-yellow-400 px-2.5 py-0.5 rounded-full text-sm font-medium border border-yellow-500/30">
-              Lvl {character.level}
-            </div>
-          </div>
-
-          {/* Avatar - compact with photo upload */}
-          <div className="flex items-center gap-4">
-            <div className="relative w-20 h-20 flex-shrink-0">
-              <div className="w-full h-full bg-gray-700/50 rounded-xl border-2 border-white/10 flex items-center justify-center overflow-hidden">
-                {character.avatar ? (
-                  <img 
-                    src={character.avatar} 
-                    alt="Avatar" 
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <img 
-                    src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix" 
-                    alt="Avatar" 
-                    className="w-full h-full object-cover opacity-70"
-                  />
-                )}
-              </div>
-              <label className="absolute -bottom-1 -right-1 w-7 h-7 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 rounded-full flex items-center justify-center cursor-pointer transition-colors shadow-lg">
-                <Camera className="w-3.5 h-3.5 text-white" />
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={handleAvatarUpload}
-                />
-              </label>
-            </div>
-            <div className="flex-1">
-              <div className="font-semibold text-lg">Player One</div>
-              <div className="text-sm text-white/60">{character.coins} 🪙 coins</div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-red-400 font-medium">HP</span>
-                <span className="text-white/60">{character.hp} / {character.maxHp}</span>
-              </div>
-              <Hearts hp={character.hp} maxHp={character.maxHp} />
-            </div>
-
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-blue-400 font-medium">XP</span>
-                <span className="text-white/60">{character.xp} / {character.level * 100}</span>
-              </div>
-              <Progress value={(character.xp / (character.level * 100)) * 100} className="h-2 bg-gray-700/50" indicatorClassName="bg-blue-500" />
-            </div>
-          </div>
-        </div>
-
-        {/* Skills Table - glass-card style */}
-        <div className="col-span-2 glass-card border border-glass-border rounded-2xl p-4 flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-             <h2 className="text-xl font-bold flex items-center gap-2">
-               <Zap className="w-5 h-5 text-blue-400" /> Skills
-             </h2>
-             <Popover open={isAddingSkill} onOpenChange={setIsAddingSkill}>
-               <PopoverTrigger asChild>
-                 <Button size="sm" variant="secondary" className="bg-white/5 hover:bg-white/10 text-white border-0">
-                   <Plus className="w-4 h-4 mr-2" /> New Skill
-                 </Button>
+      {/* Top Section: Skills (Full Width) */}
+      <div className="glass-card border border-glass-border rounded-2xl p-4 flex flex-col">
+        <div className="flex items-center justify-between mb-6">
+           <h2 className="text-xl font-semibold flex items-center gap-2 text-white">
+             <Zap className="w-5 h-5 text-white" /> Skills
+           </h2>
+           <Popover open={isAddingSkill} onOpenChange={setIsAddingSkill}>
+             <PopoverTrigger asChild>
+               <Button size="sm" variant="secondary" className="text-white bg-white/10 border border-white/10 hover:bg-white/20 transition-colors">
+                 <Plus className="w-4 h-4 mr-2" /> New Skill
+               </Button>
                </PopoverTrigger>
                <PopoverContent className="w-80 bg-gray-900 border-gray-800 text-white p-4">
                  <div className="space-y-4">
@@ -296,7 +214,7 @@ export default function GameView() {
                      onChange={(e) => setNewSkillName(e.target.value)}
                      className="bg-gray-800 border-gray-700 text-white"
                    />
-                   <Button onClick={handleAddSkill} className="w-full bg-blue-600 hover:bg-blue-500">Add Skill</Button>
+                   <Button onClick={handleAddSkill} className="w-full bg-white text-black hover:bg-gray-200">Add Skill</Button>
                  </div>
                </PopoverContent>
              </Popover>
@@ -309,62 +227,66 @@ export default function GameView() {
                 <p>No skills yet. Add one to start growing!</p>
               </div>
             ) : (
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="text-gray-500 text-sm border-b border-white/10">
-                    <th className="p-3 font-medium">Level</th>
-                    <th className="p-3 font-medium">Name</th>
-                    <th className="p-3 font-medium w-full">Progress</th>
-                    <th className="p-3 font-medium text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {skills.map(skill => (
-                    <tr key={skill.id} className="group border-b border-white/5 hover:bg-white/5 transition-colors">
-                      <td className="p-3 font-mono text-blue-400">{skill.level}</td>
-                      <td className="p-3 font-medium flex items-center gap-2">
-                        <span>{skill.icon}</span> {skill.name}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-3">
-                           <Progress 
-                             value={(skill.xp / skill.xpToNextLevel) * 100} 
-                             className="h-1.5 bg-gray-800" 
-                             indicatorClassName="bg-blue-500" 
-                           />
-                           <span className="text-xs text-gray-500 whitespace-nowrap w-20 text-right">
-                             {skill.xp} / {skill.xpToNextLevel}
-                           </span>
-                        </div>
-                      </td>
-                      <td className="p-3 text-right">
-                        <Button 
-                          size="icon" 
-                          variant="ghost" 
-                          className="h-8 w-8 text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleDelete("skill", skill.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="rounded-xl border border-white/10 overflow-hidden bg-white/5">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-white/5 border-white/10 hover:bg-white/5">
+                      <TableHead className="text-white font-medium">Level</TableHead>
+                      <TableHead className="text-white font-medium">Name</TableHead>
+                      <TableHead className="text-white font-medium w-full">Progress</TableHead>
+                      <TableHead className="text-white font-medium text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {skills.map(skill => (
+                      <TableRow key={skill.id} className="border-white/5 hover:bg-white/5 transition-colors group">
+                        <TableCell className="font-mono text-white font-bold">{skill.level}</TableCell>
+                        <TableCell className="font-medium text-white">
+                          <div className="flex items-center gap-2">
+                            <span>{skill.icon}</span> {skill.name}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                             <Progress 
+                               value={(skill.xp / skill.xpToNextLevel) * 100} 
+                               className="h-2 bg-white/10" 
+                               indicatorClassName="bg-white" 
+                             />
+                             <span className="text-xs text-gray-400 whitespace-nowrap w-24 text-right font-mono">
+                               {skill.xp} / {skill.xpToNextLevel}
+                             </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="h-8 w-8 text-gray-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleDelete("skill", skill.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </div>
         </div>
-      </div>
+
 
       {/* Middle: Active Quests - glass-card style */}
       <div className="glass-card border border-glass-border rounded-2xl p-5">
         <div className="flex items-center justify-between mb-6">
-           <h2 className="text-xl font-bold flex items-center gap-2">
-             <Swords className="w-5 h-5 text-orange-400" /> Active Quests
+           <h2 className="text-xl font-semibold flex items-center gap-2 text-white">
+             <Swords className="w-5 h-5 text-white" /> Active Quests
            </h2>
            <Popover open={isAddingQuest} onOpenChange={setIsAddingQuest}>
              <PopoverTrigger asChild>
-               <Button size="sm" variant="secondary" className="bg-white/5 hover:bg-white/10 text-white border-0">
+               <Button size="sm" variant="secondary" className="text-white bg-white/10 border border-white/10 hover:bg-white/20 transition-colors">
                  <Plus className="w-4 h-4 mr-2" /> New Quest
                </Button>
              </PopoverTrigger>
@@ -406,7 +328,7 @@ export default function GameView() {
                       <div className="text-xs text-gray-500 self-center">Default: 5</div>
                    </div>
                  </div>
-                 <Button onClick={handleAddQuest} className="w-full bg-orange-600 hover:bg-orange-500">Add Quest</Button>
+                  <Button onClick={handleAddQuest} className="w-full bg-white text-black hover:bg-gray-200">Add Quest</Button>
                </div>
              </PopoverContent>
            </Popover>
@@ -414,53 +336,70 @@ export default function GameView() {
 
         <div className="space-y-2">
           {quests.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-300">
               No active quests. Add some tasks to gain XP!
             </div>
           ) : (
-             quests.map(quest => {
-               const skill = skills.find(s => s.id === quest.skillId);
-               return (
-                 <div 
-                   key={quest.id} 
-                   className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-                     quest.completed 
-                       ? "bg-green-500/10 border-green-500/30 opacity-60" 
-                       : "bg-gray-800/50 border-white/5 hover:bg-gray-800"
-                   }`}
-                 >
-                   <div className="flex items-center gap-3">
-                      <button 
-                        onClick={() => handleCompleteQuest(quest.id, quest.completed)}
-                        disabled={quest.completed}
-                        className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                          quest.completed ? "bg-green-500 border-green-500" : "border-gray-500 hover:border-gray-300"
+            <div className="rounded-xl border border-white/10 overflow-hidden bg-white/5">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-white/5 border-white/10 hover:bg-white/5">
+                    <TableHead className="text-white font-medium w-1/12">Status</TableHead>
+                    <TableHead className="text-white font-medium w-full">Quest</TableHead>
+                    <TableHead className="text-white font-medium text-right w-1/12">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {quests.map(quest => {
+                    const skill = skills.find(s => s.id === quest.skillId);
+                    return (
+                      <TableRow
+                        key={quest.id}
+                        className={`border-white/5 hover:bg-white/5 transition-colors group ${
+                          quest.completed
+                            ? "bg-white/10 border-white/20 opacity-60"
+                            : "bg-white/5 border-white/10 hover:bg-white/10"
                         }`}
                       >
-                        {quest.completed && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-                      </button>
-                      <div>
-                        <div className={`font-medium ${quest.completed ? "line-through text-gray-400" : "text-gray-200"}`}>
-                          {quest.name}
-                        </div>
-                        {skill && (
-                          <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                            <Zap className="w-3 h-3" /> {skill.name} +{quest.xpReward} XP
+                        <TableCell className="p-3">
+                          <button 
+                            onClick={() => handleCompleteQuest(quest.id, quest.completed)}
+                            disabled={quest.completed}
+                            className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
+                              quest.completed ? "bg-white border-white" : "border-gray-500 hover:border-white"
+                            }`}
+                          >
+                            {quest.completed && <CheckCircle2 className="w-3.5 h-3.5 text-black" />}
+                          </button>
+                        </TableCell>
+                        <TableCell className="p-3 w-full">
+                          <div>
+                            <div className={`font-medium ${quest.completed ? "line-through text-gray-500" : "text-white"}`}>
+                              {quest.name}
+                            </div>
+                            {skill && (
+                              <div className="text-xs text-gray-300 flex items-center gap-1 mt-0.5">
+                                <Zap className="w-3 h-3" /> {skill.name} +{quest.xpReward} XP
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                   </div>
-                   <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      className="h-8 w-8 text-gray-500 hover:text-red-400"
-                      onClick={() => handleDelete("quest", quest.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                 </div>
-               );
-             })
+                        </TableCell>
+                        <TableCell className="p-3 text-right">
+                           <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => handleDelete("quest", quest.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </div>
       </div>
@@ -470,18 +409,18 @@ export default function GameView() {
         {/* Good Habits - glass-card style */}
         <div className="glass-card border border-glass-border rounded-2xl p-5">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-green-400" /> Good Habits
+            <h2 className="text-xl font-semibold flex items-center gap-2 text-white">
+              <Trophy className="w-5 h-5 text-white" /> Good Habits
             </h2>
             <Popover>
               <PopoverTrigger asChild>
-                <Button size="sm" variant="secondary" className="bg-white/5 hover:bg-white/10 text-white border-0" onClick={() => { setIsAddingHabit(true); setNewHabitType("good"); }}>
+                <Button size="sm" variant="secondary" className="text-white bg-white/10 border border-white/10 hover:bg-white/20 transition-colors" onClick={() => { setIsAddingHabit(true); setNewHabitType("good"); }}>
                   <Plus className="w-4 h-4 mr-2" /> Add
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80 bg-gray-900 border-gray-800 text-white p-4">
                  <div className="space-y-4">
-                   <h4 className="font-medium text-green-400">Add Good Habit</h4>
+                   <h4 className="font-medium">Add Good Habit</h4>
                    <Input 
                      placeholder="Habit Name (e.g. Read 10 pages)" 
                      value={newHabitName}
@@ -505,30 +444,33 @@ export default function GameView() {
                      <option value="weekly">Weekly</option>
                      <option value="monthly">Monthly</option>
                    </select>
-                   <div className="text-xs text-gray-400">Rewards: +3 Skill XP, +1 HP, +{newHabitVal || 5} Coins</div>
-                   <Button onClick={handleAddHabit} className="w-full bg-green-600 hover:bg-green-500">Add Habit</Button>
+                    <div className="text-xs text-gray-400">Rewards: +3 Skill XP, +1 HP, +{newHabitVal || 5} Coins</div>
+                    <Button onClick={handleAddHabit} className="w-full bg-white text-black hover:bg-gray-200">Add Habit</Button>
                  </div>
               </PopoverContent>
             </Popover>
           </div>
           
-          <div className="space-y-2">
-            {habits.filter(h => h.type === "good").map(habit => (
-              <div key={habit.id} className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg border border-white/5 hover:bg-gray-800/60 transition-colors">
-                 <div className="flex items-center gap-3">
-                   <Button 
-                     size="sm" 
-                     className={`h-8 px-3 text-xs font-semibold ${habit.completed ? 'bg-green-600/20 text-green-400 hover:bg-green-600/30' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}
-                     onClick={() => handleCompleteHabit(habit.id, "good")}
-                     disabled={habit.completed}
-                   >
-                     {habit.completed ? "DONE" : "DO IT"}
-                   </Button>
-                   <span className="font-medium text-gray-200">{habit.name}</span>
-                 </div>
-                 <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-600 hover:text-red-400" onClick={() => handleDelete("habit", habit.id)}>
-                   <Trash2 className="w-3 h-3" />
-                 </Button>
+          <div className="space-y-2 rounded-xl border border-white/10 overflow-hidden bg-white/5 p-2">
+            {habits
+              .filter(h => h.type === "good")
+              .sort((a, b) => Number(a.completed) - Number(b.completed))
+              .map(habit => (
+              <div key={habit.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Button 
+                      size="sm" 
+                      className={`h-8 px-3 text-xs font-semibold ${habit.completed ? 'bg-green-900/30 text-green-400 hover:bg-green-900/40' : 'bg-green-600 hover:bg-green-500 text-white'}`}
+                      onClick={() => handleCompleteHabit(habit.id, "good")}
+                      disabled={habit.completed}
+                    >
+                      {habit.completed ? "DONE" : "DO IT"}
+                    </Button>
+                    <span className={`font-medium ${habit.completed ? "text-gray-500 line-through" : "text-white"}`}>{habit.name}</span>
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-500 hover:text-white" onClick={() => handleDelete("habit", habit.id)}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
               </div>
             ))}
           </div>
@@ -537,19 +479,19 @@ export default function GameView() {
         {/* Bad Habits - glass-card style */}
         <div className="glass-card border border-glass-border rounded-2xl p-5">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <Skull className="w-5 h-5 text-red-400" /> Bad Habits
+            <h2 className="text-xl font-semibold flex items-center gap-2 text-white">
+              <Skull className="w-5 h-5 text-white" /> Bad Habits
             </h2>
             <Popover>
               <PopoverTrigger asChild>
-                <Button size="sm" variant="secondary" className="bg-white/5 hover:bg-white/10 text-white border-0" onClick={() => { setIsAddingHabit(true); setNewHabitType("bad"); }}>
+                <Button size="sm" variant="secondary" className="text-white bg-white/10 border border-white/10 hover:bg-white/20 transition-colors" onClick={() => { setIsAddingHabit(true); setNewHabitType("bad"); }}>
                   <Plus className="w-4 h-4 mr-2" /> Add
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80 bg-gray-900 border-gray-800 text-white p-4">
-                 <div className="space-y-4">
-                   <h4 className="font-medium text-red-400">Add Bad Habit</h4>
-                   <Input 
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Add Bad Habit</h4>
+                    <Input  
                      placeholder="Habit Name (e.g. Skipped Workout)" 
                      value={newHabitName}
                      onChange={(e) => setNewHabitName(e.target.value)}
@@ -564,30 +506,33 @@ export default function GameView() {
                      <option value="weekly">Weekly</option>
                      <option value="monthly">Monthly</option>
                    </select>
-                   <div className="text-xs text-red-400">Penalty: -5 HP</div>
-                   <Button onClick={handleAddHabit} className="w-full bg-red-600 hover:bg-red-500">Add Habit</Button>
+                    <div className="text-xs text-gray-400">Penalty: -5 HP</div>
+                    <Button onClick={handleAddHabit} className="w-full bg-white text-black hover:bg-gray-200">Add Habit</Button>
                  </div>
               </PopoverContent>
             </Popover>
           </div>
 
-          <div className="space-y-2">
-            {habits.filter(h => h.type === "bad").map(habit => (
-              <div key={habit.id} className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg border border-white/5 hover:bg-gray-800/60 transition-colors">
-                 <div className="flex items-center gap-3">
-                   <Button 
-                     size="sm" 
-                     className={`h-8 px-3 text-xs font-semibold ${habit.completed ? 'bg-red-600/20 text-red-400' : 'bg-gray-700 hover:bg-red-900/50 text-white'}`}
-                     onClick={() => handleCompleteHabit(habit.id, "bad")}
-                     disabled={habit.completed}
-                   >
-                     {habit.completed ? "LOST" : "LOST IT"}
-                   </Button>
-                   <span className="font-medium text-gray-200">{habit.name}</span>
-                 </div>
-                 <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-600 hover:text-red-400" onClick={() => handleDelete("habit", habit.id)}>
-                   <Trash2 className="w-3 h-3" />
-                 </Button>
+          <div className="space-y-2 rounded-xl border border-white/10 overflow-hidden bg-white/5 p-2">
+            {habits
+              .filter(h => h.type === "bad")
+              .sort((a, b) => Number(a.completed) - Number(b.completed))
+              .map(habit => (
+              <div key={habit.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Button 
+                      size="sm" 
+                      className={`h-8 px-3 text-xs font-semibold ${habit.completed ? 'bg-red-900/30 text-red-400' : 'bg-red-600 hover:bg-red-500 text-white'}`}
+                      onClick={() => handleCompleteHabit(habit.id, "bad")}
+                      disabled={habit.completed}
+                    >
+                      {habit.completed ? "LOST" : "LOST IT"}
+                    </Button>
+                    <span className={`font-medium ${habit.completed ? "text-gray-500 line-through" : "text-white"}`}>{habit.name}</span>
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-6 w-6 text-gray-500 hover:text-white" onClick={() => handleDelete("habit", habit.id)}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
               </div>
             ))}
           </div>

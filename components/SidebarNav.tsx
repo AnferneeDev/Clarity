@@ -1,4 +1,4 @@
-import { Clock, BarChart3, Settings, ListTodo, StickyNote, LayoutGrid, Sparkles, Gamepad2 } from "lucide-react";
+import { Clock, BarChart3, Settings, ListTodo, StickyNote, LayoutGrid, Sparkles, Trophy } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import logo from "../assets/icon.ico";
 
@@ -15,7 +15,7 @@ export default function SidebarNav({ activeTab, setActiveTab }: SidebarNavProps)
     { key: "todo", label: "Tasks", icon: ListTodo },
     { key: "chapters", label: "Chapters", icon: LayoutGrid },
     { key: "motivation", label: "Motivation", icon: Sparkles },
-    { key: "game", label: "Game", icon: Gamepad2 },
+    { key: "game", label: "Habits", icon: Trophy },
     { key: "notes", label: "Notes", icon: StickyNote },
     { key: "settings", label: "Settings", icon: Settings, bottom: true },
   ];

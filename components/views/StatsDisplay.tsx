@@ -401,7 +401,7 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
 
   return (
     <div className="w-full h-full flex flex-col p-2 overflow-hidden">
-      <div className="glass-card border border-glass-border rounded-2xl flex flex-col flex-1 min-h-0 p-4 overflow-hidden">
+      <div className="glass-card border border-glass-border rounded-2xl flex flex-col max-h-full p-4 overflow-hidden">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -547,7 +547,7 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 rounded-xl border overflow-auto rounded-t-none border-gray-700/50 bg-gray-400/30 p-0">
+        <div className="min-h-0 max-h-full overflow-auto rounded-xl border rounded-t-none border-gray-700/50 bg-gray-400/30 p-0">
           {viewMode === "table" ? (
             <Table>
               <TableHeader>
@@ -645,7 +645,7 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
             </div>
           )}
         </div>
-        {/* Total footer - inside card, fixed at bottom */}
+        {/* Total footer - right below content */}
         <div className="flex-shrink-0 mt-2 rounded-xl border border-gray-700/50 bg-gray-300/20 overflow-hidden">
           <Table>
             <TableBody>

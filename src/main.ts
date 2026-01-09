@@ -313,7 +313,11 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle("timerDb:addOrUpdateTimerData", (e, subject: string, date: string, minutes: number) => {
-    if (validate(e) && activeUserId) addTimerMinutes(activeUserId, subject, date, minutes);
+    if (validate(e) && activeUserId) {
+      console.log(`[Timer] Saving ${minutes.toFixed(2)}m for "${subject}" on ${date}. Sync will trigger in 2s...`);
+      addTimerMinutes(activeUserId, subject, date, minutes);
+      triggerSync();
+    }
   });
 
   ipcMain.handle("timerDb:addSubject", (e, name: string) => {

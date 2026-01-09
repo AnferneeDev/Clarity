@@ -123,9 +123,11 @@ class SupabaseService {
     if (!this.client) return false;
 
     try {
-      console.log('[Sync] Pushing data to server...');
+      console.log('[Sync] Pushing data to server for userId:', userId);
+      console.log('[Sync] Local data keys:', Object.keys(localData));
 
       // Delete existing data for this user
+      console.log('[Sync] Deleting existing data...');
       await Promise.all([
         this.client.from('sessions').delete().eq('user_id', userId),
         this.client.from('subjects').delete().eq('user_id', userId),
@@ -138,13 +140,16 @@ class SupabaseService {
         this.client.from('game_skills').delete().eq('user_id', userId),
         this.client.from('game_characters').delete().eq('user_id', userId),
       ]);
+      console.log('[Sync] Deleted existing data.');
 
       // Insert fresh data
       const promises: Promise<any>[] = [];
 
-      // Subjects
-      if (localData.subjects?.length > 0) {
-        const subjects = localData.subjects.map((s: any) => ({
+      // Subjects (filter by userId)
+      const userSubjects = localData.subjects?.filter((s: any) => s.userId === userId) || [];
+      console.log(`[Sync] Subjects: ${localData.subjects?.length || 0} total, ${userSubjects.length} for this user`);
+      if (userSubjects.length > 0) {
+        const subjects = userSubjects.map((s: any) => ({
           user_id: userId,
           name: s.name,
           is_hidden: s.hidden || false,
@@ -153,9 +158,21 @@ class SupabaseService {
         promises.push(this.client.from('subjects').insert(subjects) as any);
       }
 
-      // Sessions
-      if (localData.sessions?.length > 0) {
-        const sessions = localData.sessions.map((s: any) => ({
+      // Sessions (filter by userId)
+      const userSessions = localData.sessions?.filter((s: any) => s.userId === userId) || [];
+      console.log(`[Sync] Sessions: ${localData.sessions?.length || 0} total, ${userSessions.length} for this user`);
+      if (userSessions.length > 0) {
+        // Show sample of sessions being pushed
+        const recentSessions = userSessions.slice(-5);
+        console.log('[Sync] Last 5 sessions being pushed:', recentSessions.map((s: any) => ({
+          id: s.id,
+          userId: s.userId,
+          subject: s.subjectName,
+          date: s.date,
+          mins: s.minutes
+        })));
+        
+        const sessions = userSessions.map((s: any) => ({
           user_id: userId,
           subject_name: s.subjectName,
           date: s.date,
@@ -165,9 +182,10 @@ class SupabaseService {
         promises.push(this.client.from('sessions').insert(sessions) as any);
       }
 
-      // Todos
-      if (localData.todos?.length > 0) {
-        const todos = localData.todos.map((t: any) => ({
+      // Todos (filter by userId)
+      const userTodos = localData.todos?.filter((t: any) => t.userId === userId) || [];
+      if (userTodos.length > 0) {
+        const todos = userTodos.map((t: any) => ({
           user_id: userId,
           text: t.text,
           done: t.done,
@@ -178,9 +196,10 @@ class SupabaseService {
         promises.push(this.client.from('todos').insert(todos) as any);
       }
 
-      // Notes
-      if (localData.notes?.length > 0) {
-        const notes = localData.notes.map((n: any) => ({
+      // Notes (filter by userId)
+      const userNotes = localData.notes?.filter((n: any) => n.userId === userId) || [];
+      if (userNotes.length > 0) {
+        const notes = userNotes.map((n: any) => ({
           user_id: userId,
           title: n.title,
           content: n.content,
@@ -190,9 +209,10 @@ class SupabaseService {
         promises.push(this.client.from('notes').insert(notes) as any);
       }
 
-      // Chapters
-      if (localData.chapters?.length > 0) {
-        const chapters = localData.chapters.map((c: any) => ({
+      // Chapters (filter by userId)
+      const userChapters = localData.chapters?.filter((c: any) => c.userId === userId) || [];
+      if (userChapters.length > 0) {
+        const chapters = userChapters.map((c: any) => ({
           user_id: userId,
           title: c.title,
           icon: c.icon,
@@ -203,9 +223,10 @@ class SupabaseService {
         promises.push(this.client.from('chapters').insert(chapters) as any);
       }
 
-      // Motivations
-      if (localData.motivations?.length > 0) {
-        const motivations = localData.motivations.map((m: any) => ({
+      // Motivations (filter by userId)
+      const userMotivations = localData.motivations?.filter((m: any) => m.userId === userId) || [];
+      if (userMotivations.length > 0) {
+        const motivations = userMotivations.map((m: any) => ({
           user_id: userId,
           image_path: m.imagePath,
           order: m.order,
@@ -276,13 +297,29 @@ class SupabaseService {
         }
       }
 
-      await Promise.all(promises);
+      // Execute all inserts and check for errors
+      const results = await Promise.all(promises);
+      
+      // Check each result for errors
+      const errors = results.filter((r: any) => r?.error);
+      if (errors.length > 0) {
+        console.error('[Sync] ❌ Some inserts failed:', errors.map((r: any) => ({
+          table: r?.statusText || 'unknown',
+          error: r?.error?.message || r?.error
+        })));
+      } else {
+        console.log('[Sync] All inserts succeeded. Results count:', results.length);
+      }
 
       // Update server timestamp
-      await this.client.from('sync_metadata').upsert({
+      const { error: timestampError } = await this.client.from('sync_metadata').upsert({
         user_id: userId,
         last_updated_at: new Date().toISOString()
       });
+      
+      if (timestampError) {
+        console.error('[Sync] ❌ Failed to update timestamp:', timestampError);
+      }
 
       console.log('[Sync] ✅ Push complete');
       return true;

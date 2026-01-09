@@ -97,5 +97,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     // Character
     heal: (amount: number) => ipcRenderer.invoke("game:heal", amount),
     reset: () => ipcRenderer.invoke("game:reset"),
+    updateCharacter: (updates: any) => ipcRenderer.invoke("game:updateCharacter", updates),
   },
 });

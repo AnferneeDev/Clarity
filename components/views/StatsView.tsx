@@ -7,7 +7,7 @@ export default function StatsView() {
   const [viewMode, setViewMode] = useState<"progress" | "table">("table");
 
   return (
-    <div className="space-y-6">
+    <div className="h-full w-full overflow-hidden">
       <StatsDisplay viewMode={viewMode} setViewMode={setViewMode} />
     </div>
   );

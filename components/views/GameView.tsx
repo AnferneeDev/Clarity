@@ -4,7 +4,7 @@ import { Input } from "../ui/input";
 import { Progress } from "../ui/progress";
 import { 
   Heart, Zap, Shield, Swords, Skull, CheckCircle2, 
-  Plus, Trash2, Activity, Trophy
+  Plus, Trash2, Activity, Trophy, Camera
 } from "lucide-react";
 import {
   Popover,
@@ -192,42 +192,75 @@ export default function GameView() {
     return <div className="flex flex-wrap gap-1">{hearts}</div>;
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Convert to base64 for storage
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      await window.electronAPI.game.updateCharacter({ avatar: base64 });
+      loadData();
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
-    <div className="w-full h-full p-6 overflow-y-auto text-white space-y-8">
-      {/* Top Section: Character & Skills */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="w-full h-full p-4 overflow-y-auto text-white space-y-6">
+      {/* Top Section: Character & Skills - always in same row */}
+      <div className="grid grid-cols-3 gap-4">
         
-        {/* Character Card */}
-        <div className="lg:col-span-1 bg-gray-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-6 flex flex-col gap-6">
+        {/* Character Card - glass-card style */}
+        <div className="col-span-1 glass-card border border-glass-border rounded-2xl p-4 flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <Shield className="w-6 h-6 text-yellow-500" /> Character
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Shield className="w-5 h-5 text-yellow-500" /> Character
             </h2>
-            <div className="bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full text-sm font-medium border border-yellow-500/20">
+            <div className="bg-yellow-500/20 text-yellow-400 px-2.5 py-0.5 rounded-full text-sm font-medium border border-yellow-500/30">
               Lvl {character.level}
             </div>
           </div>
 
-          {/* Avatar Placeholder */}
-          <div className="aspect-square bg-black/40 rounded-lg border-2 border-white/10 flex items-center justify-center relative overflow-hidden group">
-             {/* Use generic avatar if none */}
-             <img 
-               src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix" 
-               alt="Avatar" 
-               className="w-full h-full object-cover opacity-80"
-             />
-             <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-             <div className="absolute bottom-4 left-4 right-4 text-center">
-               <div className="text-xl font-bold">Player One</div>
-               <div className="text-sm text-gray-400">{character.coins} 🪙 coins</div>
-             </div>
+          {/* Avatar - compact with photo upload */}
+          <div className="flex items-center gap-4">
+            <div className="relative w-20 h-20 flex-shrink-0">
+              <div className="w-full h-full bg-gray-700/50 rounded-xl border-2 border-white/10 flex items-center justify-center overflow-hidden">
+                {character.avatar ? (
+                  <img 
+                    src={character.avatar} 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <img 
+                    src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix" 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover opacity-70"
+                  />
+                )}
+              </div>
+              <label className="absolute -bottom-1 -right-1 w-7 h-7 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 rounded-full flex items-center justify-center cursor-pointer transition-colors shadow-lg">
+                <Camera className="w-3.5 h-3.5 text-white" />
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={handleAvatarUpload}
+                />
+              </label>
+            </div>
+            <div className="flex-1">
+              <div className="font-semibold text-lg">Player One</div>
+              <div className="text-sm text-white/60">{character.coins} 🪙 coins</div>
+            </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-red-400 font-medium">HP</span>
-                <span className="text-gray-400">{character.hp} / {character.maxHp}</span>
+                <span className="text-white/60">{character.hp} / {character.maxHp}</span>
               </div>
               <Hearts hp={character.hp} maxHp={character.maxHp} />
             </div>
@@ -235,15 +268,15 @@ export default function GameView() {
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-blue-400 font-medium">XP</span>
-                <span className="text-gray-400">{character.xp} / {character.level * 100}</span>
+                <span className="text-white/60">{character.xp} / {character.level * 100}</span>
               </div>
-              <Progress value={(character.xp / (character.level * 100)) * 100} className="h-2 bg-gray-800" indicatorClassName="bg-blue-500" />
+              <Progress value={(character.xp / (character.level * 100)) * 100} className="h-2 bg-gray-700/50" indicatorClassName="bg-blue-500" />
             </div>
           </div>
         </div>
 
-        {/* Skills Table */}
-        <div className="lg:col-span-2 bg-gray-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-6 flex flex-col">
+        {/* Skills Table - glass-card style */}
+        <div className="col-span-2 glass-card border border-glass-border rounded-2xl p-4 flex flex-col">
           <div className="flex items-center justify-between mb-6">
              <h2 className="text-xl font-bold flex items-center gap-2">
                <Zap className="w-5 h-5 text-blue-400" /> Skills
@@ -323,8 +356,8 @@ export default function GameView() {
         </div>
       </div>
 
-      {/* Middle: Active Quests */}
-      <div className="bg-gray-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+      {/* Middle: Active Quests - glass-card style */}
+      <div className="glass-card border border-glass-border rounded-2xl p-5">
         <div className="flex items-center justify-between mb-6">
            <h2 className="text-xl font-bold flex items-center gap-2">
              <Swords className="w-5 h-5 text-orange-400" /> Active Quests
@@ -434,8 +467,8 @@ export default function GameView() {
 
       {/* Bottom: Habits */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Good Habits */}
-        <div className="bg-gray-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+        {/* Good Habits - glass-card style */}
+        <div className="glass-card border border-glass-border rounded-2xl p-5">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold flex items-center gap-2">
               <Trophy className="w-5 h-5 text-green-400" /> Good Habits
@@ -501,8 +534,8 @@ export default function GameView() {
           </div>
         </div>
 
-        {/* Bad Habits */}
-        <div className="bg-gray-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+        {/* Bad Habits - glass-card style */}
+        <div className="glass-card border border-glass-border rounded-2xl p-5">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold flex items-center gap-2">
               <Skull className="w-5 h-5 text-red-400" /> Bad Habits

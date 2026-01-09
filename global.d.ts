@@ -86,6 +86,7 @@ declare global {
         // Character
         heal: (amount: number) => Promise<boolean>;
         reset: () => Promise<boolean>;
+        updateCharacter: (updates: { avatar?: string }) => Promise<boolean>;
       };
     };
   }

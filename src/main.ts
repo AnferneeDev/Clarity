@@ -47,7 +47,8 @@ import {
   deleteHabit,
   completeHabit,
   healCharacter,
-  resetGame
+  resetGame,
+  updateCharacter
 } from "./storage";
 import supabaseService from "./supabaseService";
 
@@ -684,6 +685,14 @@ function setupIpcHandlers() {
         resetGame(activeUserId); 
         triggerSync();
         return true; 
+      }
+      return false;
+  });
+  ipcMain.handle("game:updateCharacter", (e, updates: any) => {
+      if (validate(e) && activeUserId) {
+        const res = updateCharacter(activeUserId, updates);
+        if (res) triggerSync();
+        return res;
       }
       return false;
   });

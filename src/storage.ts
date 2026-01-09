@@ -1349,3 +1349,16 @@ export function resetGame(userId: string): void {
   data.gameData[userId] = createDefaultGameData();
   saveData(data);
 }
+
+export function updateCharacter(userId: string, updates: Partial<{ avatar: string }>): boolean {
+  const data = loadData();
+  const gameData = data.gameData[userId];
+  if (!gameData) return false;
+  
+  if (updates.avatar !== undefined) {
+    gameData.character.avatar = updates.avatar;
+  }
+  
+  saveData(data);
+  return true;
+}

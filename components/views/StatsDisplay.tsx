@@ -1,7 +1,7 @@
 // src/renderer/components/views/StatsDisplay.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -356,6 +356,34 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
   const visibleSubjectStats = filteredData.subjectStats.filter(s => !hiddenSubjects.has(s.subject));
   const visibleTotalMinutes = visibleSubjectStats.reduce((acc, s) => acc + s.total_minutes, 0);
 
+  // NEW: Build pivot table data for date range views (subjects as columns, days as rows)
+  const pivotData = useMemo(() => {
+    if (dateFilter === "day") return null; // Today view uses current row-based layout
+    
+    // Get unique dates sorted descending (newest first)
+    const uniqueDates = [...new Set(filteredData.aggregatedSessions.map(s => s.date))].sort().reverse();
+    
+    // Get visible subjects
+    const subjects = visibleSubjectStats.map(s => s.subject).sort();
+    
+    // Build pivot rows: each row is a date with columns for each subject
+    const rows = uniqueDates.map(date => {
+      const subjectMinutes: Record<string, number> = {};
+      let dayTotal = 0;
+      
+      subjects.forEach(subj => {
+        const session = filteredData.aggregatedSessions.find(s => s.date === date && s.subject_name === subj);
+        const mins = session?.total_minutes || 0;
+        subjectMinutes[subj] = mins;
+        dayTotal += mins;
+      });
+      
+      return { date, subjectMinutes, total: dayTotal };
+    });
+    
+    return { subjects, rows };
+  }, [dateFilter, filteredData.aggregatedSessions, visibleSubjectStats]);
+
   const handleConfigChange = (updates: Partial<TableConfig>) => {
     setTableConfig((prev) => ({ ...prev, ...updates }));
   };
@@ -372,8 +400,8 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
   };
 
   return (
-    <div className="w-full h-full flex flex-col p-2">
-      <div className="glass-card border border-glass-border rounded-2xl flex flex-col h-full p-4">
+    <div className="w-full h-full flex flex-col p-2 overflow-hidden">
+      <div className="glass-card border border-glass-border rounded-2xl flex flex-col flex-1 min-h-0 p-4 overflow-hidden">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -519,38 +547,77 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
           </div>
         </div>
 
-        <div className="flex-1 mb-4 rounded-xl border overflow-auto max-h-[65vh] rounded-t-none border-gray-700/50 bg-gray-400/30 p-0">
+        <div className="flex-1 min-h-0 rounded-xl border overflow-auto rounded-t-none border-gray-700/50 bg-gray-400/30 p-0">
           {viewMode === "table" ? (
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-100/30 border-gray-700/50">
-                  {tableConfig.showSubject && <TableHead className="text-white font-medium">Subject</TableHead>}
-                  {tableConfig.showDate && <TableHead className="text-white font-medium">Date</TableHead>}
-                  {tableConfig.showFocusTime && <TableHead className="text-white font-medium">Focus Time</TableHead>}
+                <TableRow className="bg-gray-100/30 border-gray-700/50 sticky top-0">
+                  {/* For date ranges: Date column + subject columns + Total column */}
+                  {/* For Today: Subject + Date + Focus Time (original layout) */}
+                  {dateFilter === "day" ? (
+                    <>
+                      {tableConfig.showSubject && <TableHead className="text-white font-medium">Subject</TableHead>}
+                      {tableConfig.showFocusTime && <TableHead className="text-white font-medium">Focus Time</TableHead>}
+                    </>
+                  ) : (
+                    <>
+                      <TableHead className="text-white font-medium sticky left-0 bg-gray-800/90 z-10">Date</TableHead>
+                      {pivotData?.subjects.map(subj => (
+                        <TableHead key={subj} className="text-white font-medium text-center min-w-[80px]">
+                          {formatSubjectName(subj)}
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-white font-medium text-center bg-gray-700/50">Total</TableHead>
+                    </>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={visibleColumnCount || 3} className="text-center py-6 text-white/60">
+                    <TableCell colSpan={dateFilter === "day" ? 2 : (pivotData?.subjects.length || 0) + 2} className="text-center py-6 text-white/60">
                       Loading data...
                     </TableCell>
                   </TableRow>
-                ) : currentTableData.length > 0 ? (
-                  currentTableData.map((session, index) => (
-                    <TableRow key={`${tableConfig.combinePerDay ? "daily" : "subject"}-${session.date}-${index}`} className="border-gray-700/50 hover:bg-white/10">
-                      {/* CHANGED: Format subject name for display */}
-                      {tableConfig.showSubject && <TableCell className="text-white">{tableConfig.combinePerDay ? "All" : formatSubjectName((session as AggregatedSession).subject_name) || "—"}</TableCell>}
-                      {tableConfig.showDate && <TableCell className="text-white">{formatDate(session.date)}</TableCell>}
-                      {tableConfig.showFocusTime && <TableCell className="text-white">{formatMinutes(session.total_minutes || 0)}</TableCell>}
+                ) : dateFilter === "day" ? (
+                  /* TODAY VIEW: Subjects as rows */
+                  visibleSubjectStats.length > 0 ? (
+                    visibleSubjectStats.map((stat, index) => (
+                      <TableRow key={`today-${stat.subject}-${index}`} className="border-gray-700/50 hover:bg-white/10">
+                        {tableConfig.showSubject && <TableCell className="text-white">{formatSubjectName(stat.subject)}</TableCell>}
+                        {tableConfig.showFocusTime && <TableCell className="text-white">{formatMinutes(stat.total_minutes || 0)}</TableCell>}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow className="border-gray-700/50">
+                      <TableCell colSpan={2} className="text-center py-6 text-white/60">
+                        No data recorded today
+                      </TableCell>
                     </TableRow>
-                  ))
+                  )
                 ) : (
-                  <TableRow className="border-gray-700/50">
-                    <TableCell colSpan={visibleColumnCount || 3} className="text-center py-6 text-white/60">
-                      {dateFilter === "custom" && (!customStartDate || !customEndDate) ? "Please select a date range" : "No data found for this range"}
-                    </TableCell>
-                  </TableRow>
+                  /* DATE RANGE VIEW: Days as rows, subjects as columns */
+                  pivotData && pivotData.rows.length > 0 ? (
+                    pivotData.rows.map((row, index) => (
+                      <TableRow key={`pivot-${row.date}-${index}`} className="border-gray-700/50 hover:bg-white/10">
+                        <TableCell className="text-white sticky left-0 bg-gray-800/80 z-10">{formatDate(row.date)}</TableCell>
+                        {pivotData.subjects.map(subj => (
+                          <TableCell key={subj} className="text-white text-center">
+                            {row.subjectMinutes[subj] > 0 ? formatMinutes(row.subjectMinutes[subj]) : "—"}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-white text-center font-medium bg-gray-700/30">
+                          {formatMinutes(row.total)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow className="border-gray-700/50">
+                      <TableCell colSpan={(pivotData?.subjects.length || 0) + 2} className="text-center py-6 text-white/60">
+                        {dateFilter === "custom" && (!customStartDate || !customEndDate) ? "Please select a date range" : "No data found for this range"}
+                      </TableCell>
+                    </TableRow>
+                  )
                 )}
               </TableBody>
             </Table>
@@ -575,19 +642,16 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
                     </div>
                   );
                 })}
-              {visibleSubjectStats.filter((s) => s.total_minutes > 0).length === 0 && (
-                <div className="text-center py-8 text-white/60">{dateFilter === "custom" && (!customStartDate || !customEndDate) ? "Please select a date range" : "No study data recorded for this period"}</div>
-              )}
             </div>
           )}
         </div>
-        <div className="rounded-xl border border-gray-700/50 bg-gray-300/20 overflow-hidden">
+        {/* Total footer - inside card, fixed at bottom */}
+        <div className="flex-shrink-0 mt-2 rounded-xl border border-gray-700/50 bg-gray-300/20 overflow-hidden">
           <Table>
             <TableBody>
               <TableRow className="hover:bg-transparent">
-                {tableConfig.showSubject && <TableCell className="text-white font-medium text-sm py-4">{filteredData.dateRange} Total</TableCell>}
-                {tableConfig.showDate && <TableCell className="text-white py-4"></TableCell>}
-                {tableConfig.showFocusTime && <TableCell className="text-white font-medium text-sm py-4">{formatMinutes(visibleTotalMinutes)}</TableCell>}
+                <TableCell className="text-white font-medium text-sm py-3">{filteredData.dateRange} Total</TableCell>
+                <TableCell className="text-white font-medium text-sm py-3 text-right">{formatMinutes(visibleTotalMinutes)}</TableCell>
               </TableRow>
             </TableBody>
           </Table>

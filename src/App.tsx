@@ -22,14 +22,42 @@ export default function App() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const storedId = localStorage.getItem("clarity_user_id");
-      const storedUsername = localStorage.getItem("clarity_username");
-      if (storedId && storedUsername) {
-        // Restore session from localStorage
-        setCurrentUser({ id: storedId, username: storedUsername });
-        setIsAuthenticated(true);
+      try {
+        // 1. Check with Backend first (Source of Truth for session)
+        const session = await window.electronAPI.auth.getSession();
+        
+        if (session) {
+          console.log("[App] Session restored from backend:", session);
+          localStorage.setItem("clarity_user_id", session.id);
+          localStorage.setItem("clarity_username", session.username);
+          setCurrentUser(session);
+          setIsAuthenticated(true);
+        } else {
+          // 2. If Backend has no user, check localStorage and try to restore
+          const storedId = localStorage.getItem("clarity_user_id");
+          const storedUsername = localStorage.getItem("clarity_username");
+          
+          if (storedId && storedUsername) {
+            console.log("[App] Restoring session from localStorage...");
+            // Attempt auto-login to restore backend state
+            const user = await window.electronAPI.auth.login(storedUsername);
+            if (user) {
+              console.log("[App] Auto-login successful");
+              setCurrentUser(user);
+              setIsAuthenticated(true);
+            } else {
+              console.warn("[App] Stored credentials invalid or user not found. Clearing.");
+              localStorage.removeItem("clarity_user_id");
+              localStorage.removeItem("clarity_username");
+              setIsAuthenticated(false);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[App] Auth check failed:", err);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     checkAuth();
   }, []);

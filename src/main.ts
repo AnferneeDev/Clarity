@@ -35,6 +35,11 @@ import {
   deleteMotivation,
   updateMotivationOrder,
   mergeSupabaseData,
+  saveData,
+  setLastActiveUser,
+  getLastActiveUser,
+  type AppData,
+  type User,
   // Game functions
   getGameData,
   addSkill,
@@ -70,8 +75,8 @@ function triggerSync() {
   
   syncTimeout = setTimeout(async () => {
     console.log('[Main] Triggering auto-sync...');
-    const appData = loadData();
-    const userLocalData = appData[activeUserId!] || {}; // Assuming structure, or pass full appData if sync handles mapping
+    // appData removed (unused)
+    // userLocalData removed (invalid access)
     // Actually, sync expects (userId, localData) where localData is the whole DB or user slice?
     // Let's check sync signature: sync(userId, localData, localTimestamp)
     
@@ -138,6 +143,16 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
 
+  // Minimize to tray logic
+  mainWindow.on("close", (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+      return false;
+    }
+    return true;
+  });
+
   // initialize data (trigger seed if needed)
   console.log("[Main] Loading local data...");
   const appData = loadData();
@@ -156,6 +171,7 @@ function createWindow() {
      supabaseService.getSession().then(async (session) => {
         if (session?.user) {
            activeUserId = session.user.id;
+           setLastActiveUser(activeUserId!); // Persist as last active
            console.log('[Main] Session restored from Supabase. Active User:', activeUserId);
            
            // Pull latest data (including seeded game data)
@@ -163,24 +179,30 @@ function createWindow() {
            const serverData = await supabaseService.pullFromServer(activeUserId);
            if (serverData) {
               mergeSupabaseData(activeUserId, serverData);
-              console.log('[Main] Initial sync complete. Loaded items:', {
-                 skills: serverData.gameData?.[activeUserId]?.skills?.length,
-                 quests: serverData.gameData?.[activeUserId]?.quests?.length
-              });
+              console.log('[Main] Initial sync complete.');
            }
         } else {
-           // 2. Fallback to first local user if no session (Offline / Legacy)
-           if (appData.users && appData.users.length > 0) {
-              activeUserId = appData.users[0].id;
-              console.log('[Main] No online session, falling back to local user:', activeUserId);
+           // 2. Fallback to last active local user (Offline / Legacy)
+           // Robust fallback: Check last active user first, then first user in list
+           const lastUser = getLastActiveUser();
+           if (lastUser && appData.users.find(u => u.id === lastUser)) {
+              activeUserId = lastUser;
+              console.log('[Main] No online session, restoring last active user:', activeUserId);
+           } else if (appData.users && appData.users.length > 0) {
+              activeUserId = appData.users[0].id; // Fallback to first if no history
+              console.log('[Main] No history, falling back to first local user:', activeUserId);
            } else {
               console.log('[Main] No users found. Waiting for login.');
            }
         }
      }).catch(err => {
          console.error('[Main] Session check failed:', err);
-         // Fallback on error
-         if (appData.users && appData.users.length > 0) {
+         // Fallback on error to last active user
+         const lastUser = getLastActiveUser();
+         if (lastUser && appData.users.find(u => u.id === lastUser)) {
+            activeUserId = lastUser;
+            console.log('[Main] Session error, restoring last active user:', activeUserId);
+         } else if (appData.users && appData.users.length > 0) {
             activeUserId = appData.users[0].id;
             console.log('[Main] Session error, falling back to local user:', activeUserId);
          }
@@ -192,14 +214,24 @@ function createWindow() {
   console.log("[Main] Initialization complete");
 }
 
+let isQuitting = false;
+
 function createTray() {
   const icon = nativeImage.createFromPath(getIconPath("icon.ico"));
   tray = new Tray(icon.resize({ width: 16, height: 16 }));
   tray.setToolTip("Clarity");
+  
+  tray.on("click", () => {
+    mainWindow?.show();
+  });
+
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: "Show App", click: () => mainWindow?.show() },
-      { label: "Quit", click: () => app.quit() },
+      { label: "Quit", click: () => {
+        isQuitting = true;
+        app.quit();
+      }},
     ])
   );
 }
@@ -229,6 +261,14 @@ function setupIpcHandlers() {
 
   // Tray
   ipcMain.handle("setTrayState", (e, state: "active" | "idle") => {
+    if (!tray) return;
+    const iconName = state === "active" ? "icon-active.ico" : "icon.ico";
+    const icon = nativeImage.createFromPath(getIconPath(iconName));
+    tray.setImage(icon.resize({ width: 16, height: 16 }));
+  });
+  
+  // Compatibility alias for the specific error observed
+  ipcMain.handle("tray:set-state", (e, state: "active" | "idle") => {
     if (!tray) return;
     const iconName = state === "active" ? "icon-active.ico" : "icon.ico";
     const icon = nativeImage.createFromPath(getIconPath(iconName));
@@ -291,6 +331,7 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle("auth:getSession", async () => {
+    // 1. Try Supabase Session
     const session = await supabaseService.getSession();
     if (session?.user) {
       activeUserId = session.user.id;
@@ -299,6 +340,21 @@ function setupIpcHandlers() {
         username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User'
       };
     }
+
+    // 2. Fallback: Return active local user if set (e.g. valid offline session from startup)
+    if (activeUserId) {
+       const appData = loadData();
+       const user = appData.users?.find(u => u.id === activeUserId);
+       if (user) {
+          return {
+             id: user.id,
+             username: user.username
+          };
+       }
+       // If just ID is known but not in users list (rare legacy?), return generic
+       return { id: activeUserId, username: 'User' };
+    }
+    
     return null;
   });
 

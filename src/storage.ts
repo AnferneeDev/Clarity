@@ -148,6 +148,7 @@ export interface AppData {
     localLastUpdatedAt: string;
     serverLastUpdatedAt: string;
   };
+  lastActiveUserId?: string;
 }
 
 // ============================================
@@ -168,6 +169,18 @@ const DEFAULT_DATA: AppData = {
 };
 
 let dataCache: AppData | null = null;
+export function setLastActiveUser(userId: string): void {
+  const data = loadData();
+  data.lastActiveUserId = userId;
+  saveData(data);
+}
+
+export function getLastActiveUser(): string | null {
+  const data = loadData();
+  return data.lastActiveUserId || null;
+}
+
+// Duplicate dataCache declaration removed
 
 function getDataFilePath(): string {
   return path.join(app.getPath("userData"), "clarity-data.json");
@@ -503,6 +516,20 @@ export function mergeSupabaseData(userId: string, supabaseData: {
 }): void {
   const data = loadData();
   console.log('[Storage] Merging Supabase data for user:', userId);
+
+  // Ensure user exists in local storage so fallback works
+  if (!data.users.find(u => u.id === userId)) {
+    data.users.push({
+      id: userId,
+      username: "User", // Will be updated if we had profile info, but ID is critical
+      passwordHash: "",
+      createdAt: new Date().toISOString()
+    });
+    console.log('[Storage] Added Supabase user to local persistence for offline fallback');
+  } else {
+    // Ideally ensure it's at the end or prioritized? 
+    // For now just existing is enough for search
+  }
   
   // Remove existing data for this user
   data.subjects = data.subjects.filter(s => s.userId !== userId);

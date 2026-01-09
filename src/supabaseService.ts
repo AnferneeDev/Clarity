@@ -72,7 +72,10 @@ class SupabaseService {
         .single();
 
       if (error) {
-        console.error('[Supabase] Error fetching server timestamp:', error);
+        // PGRST116 means no rows returned (first sync). Ignore it.
+        if (error.code !== 'PGRST116') {
+           console.error('[Supabase] Error fetching server timestamp:', error);
+        }
         return null;
       }
 
@@ -129,6 +132,7 @@ class SupabaseService {
         this.client.from('todos').delete().eq('user_id', userId),
         this.client.from('notes').delete().eq('user_id', userId),
         this.client.from('chapters').delete().eq('user_id', userId),
+        this.client.from('motivations').delete().eq('user_id', userId),
         this.client.from('game_quests').delete().eq('user_id', userId),
         this.client.from('game_habits').delete().eq('user_id', userId),
         this.client.from('game_skills').delete().eq('user_id', userId),
@@ -146,7 +150,7 @@ class SupabaseService {
           is_hidden: s.hidden || false,
           created_at: s.createdAt
         }));
-        promises.push(this.client.from('subjects').insert(subjects));
+        promises.push(this.client.from('subjects').insert(subjects) as any);
       }
 
       // Sessions
@@ -158,7 +162,7 @@ class SupabaseService {
           minutes: s.minutes,
           created_at: s.createdAt || new Date().toISOString()
         }));
-        promises.push(this.client.from('sessions').insert(sessions));
+        promises.push(this.client.from('sessions').insert(sessions) as any);
       }
 
       // Todos
@@ -171,7 +175,7 @@ class SupabaseService {
           due_date: t.dueDate,
           created_at: t.createdAt
         }));
-        promises.push(this.client.from('todos').insert(todos));
+        promises.push(this.client.from('todos').insert(todos) as any);
       }
 
       // Notes
@@ -183,7 +187,7 @@ class SupabaseService {
           color: n.color,
           created_at: n.createdAt
         }));
-        promises.push(this.client.from('notes').insert(notes));
+        promises.push(this.client.from('notes').insert(notes) as any);
       }
 
       // Chapters
@@ -196,7 +200,18 @@ class SupabaseService {
           clear: c.clear,
           created_at: c.createdAt
         }));
-        promises.push(this.client.from('chapters').insert(chapters));
+        promises.push(this.client.from('chapters').insert(chapters) as any);
+      }
+
+      // Motivations
+      if (localData.motivations?.length > 0) {
+        const motivations = localData.motivations.map((m: any) => ({
+          user_id: userId,
+          image_path: m.imagePath,
+          order: m.order,
+          created_at: m.createdAt
+        }));
+        promises.push(this.client.from('motivations').insert(motivations) as any);
       }
 
       // Game Data
@@ -212,7 +227,7 @@ class SupabaseService {
           coins: gameData.character.coins,
           avatar: gameData.character.avatar,
           last_reset_date: gameData.lastResetDate
-        }));
+        }) as unknown as Promise<any>);
 
         // Skills
         if (gameData.skills?.length > 0) {
@@ -225,7 +240,7 @@ class SupabaseService {
             xp: s.xp,
             xp_to_next_level: s.xpToNextLevel
           }));
-          promises.push(this.client.from('game_skills').insert(skills));
+          promises.push(this.client.from('game_skills').insert(skills) as any);
         }
 
         // Quests
@@ -240,7 +255,7 @@ class SupabaseService {
             completed: q.completed,
             last_completed_date: q.lastCompletedDate
           }));
-          promises.push(this.client.from('game_quests').insert(quests));
+          promises.push(this.client.from('game_quests').insert(quests) as any);
         }
 
         // Habits
@@ -257,7 +272,7 @@ class SupabaseService {
             completed: h.completed,
             last_completed_date: h.lastCompletedDate
           }));
-          promises.push(this.client.from('game_habits').insert(habits));
+          promises.push(this.client.from('game_habits').insert(habits) as any);
         }
       }
 
@@ -286,12 +301,13 @@ class SupabaseService {
     try {
       console.log('[Sync] Pulling data from server for userId:', userId);
 
-      const [subjects, sessions, todos, notes, chapters, character, skills, quests, habits] = await Promise.all([
+      const [subjects, sessions, todos, notes, chapters, motivations, character, skills, quests, habits] = await Promise.all([
         this.client.from('subjects').select('*').eq('user_id', userId),
         this.client.from('sessions').select('*').eq('user_id', userId),
         this.client.from('todos').select('*').eq('user_id', userId),
         this.client.from('notes').select('*').eq('user_id', userId),
         this.client.from('chapters').select('*').eq('user_id', userId),
+        this.client.from('motivations').select('*').eq('user_id', userId),
         this.client.from('game_characters').select('*').eq('user_id', userId).maybeSingle(),
         this.client.from('game_skills').select('*').eq('user_id', userId),
         this.client.from('game_quests').select('*').eq('user_id', userId),
@@ -304,6 +320,7 @@ class SupabaseService {
       if (todos.error) console.error('[Sync] todos error:', todos.error);
       if (notes.error) console.error('[Sync] notes error:', notes.error);
       if (chapters.error) console.error('[Sync] chapters error:', chapters.error);
+      if (motivations.error) console.error('[Sync] motivations error:', motivations.error);
       
       // Log raw data counts
       console.log('[Sync] Raw data counts:', {
@@ -311,8 +328,41 @@ class SupabaseService {
         sessions: sessions.data?.length || 0,
         todos: todos.data?.length || 0,
         notes: notes.data?.length || 0,
-        chapters: chapters.data?.length || 0
+        chapters: chapters.data?.length || 0,
+        motivations: motivations.data?.length || 0,
+        character: character.data ? 'Found' : 'Missing',
+        skills: skills.data?.length || 0,
+        quests: quests.data?.length || 0,
       });
+
+
+      
+      // Auto-create character if missing (Self-healing)
+      let charData = character.data;
+      if (!charData) {
+        console.log('[Sync] Character missing, creating default...');
+        const { data: newChar, error: createError } = await this.client
+          .from('game_characters')
+          .insert({
+             user_id: userId,
+             hp: 100,
+             max_hp: 100,
+             xp: 0,
+             level: 1,
+             coins: 0,
+             avatar: 'default',
+             last_reset_date: new Date().toISOString()
+          })
+          .select()
+          .single();
+          
+        if (newChar) {
+           charData = newChar;
+           console.log('[Sync] Created default character');
+        } else {
+           console.error('[Sync] Failed to create default character:', createError);
+        }
+      }
 
       const serverData = {
         subjects: subjects.data?.map((s: any) => ({
@@ -356,19 +406,26 @@ class SupabaseService {
           clear: c.clear,
           createdAt: c.created_at
         })) || [],
+        motivations: motivations.data?.map((m: any) => ({
+          id: m.id,
+          userId: m.user_id,
+          imagePath: m.image_path,
+          order: m.order,
+          createdAt: m.created_at
+        })) || [],
         gameData: null as any
       };
 
       // Construct Game Data
-      if (character.data) {
+      if (charData) {
         serverData.gameData = {
           character: {
-            hp: character.data.hp,
-            maxHp: character.data.max_hp,
-            xp: character.data.xp,
-            level: character.data.level,
-            coins: character.data.coins,
-            avatar: character.data.avatar
+            hp: charData.hp,
+            maxHp: charData.max_hp,
+            xp: charData.xp,
+            level: charData.level,
+            coins: charData.coins,
+            avatar: charData.avatar
           },
           skills: skills.data?.map((s: any) => ({
             id: s.id,
@@ -398,7 +455,7 @@ class SupabaseService {
             completed: h.completed,
             lastCompletedDate: h.last_completed_date
           })) || [],
-          lastResetDate: character.data.last_reset_date || new Date().toISOString().split('T')[0]
+          lastResetDate: charData.last_reset_date || new Date().toISOString().split('T')[0]
         };
       }
 

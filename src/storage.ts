@@ -100,9 +100,10 @@ export interface GameQuest {
   id: string;
   name: string;
   icon: string;
-  skillId: string;
+  skillId?: string;
   xpReward: number;
   completed: boolean;
+  frequency: "daily" | "weekly" | "monthly";
   lastCompletedDate?: string;
 }
 
@@ -115,6 +116,7 @@ export interface GameHabit {
   xpReward?: number; // Good habits
   hpDamage?: number; // Bad habits
   completed: boolean;
+  frequency: "daily" | "weekly" | "monthly";
   lastCompletedDate?: string;
 }
 
@@ -256,7 +258,7 @@ function seedInitialData(data: AppData) {
   // The provided CSV shows specific entries for 5, 6, 7, 8.
   // The distribution likely covers base load.
   // Logic: The "spike" was 45k on Jan 4.
-  // The provided CSV lines for Jan 5,6,7,8 seem valid.
+  // The provided CSV lines for Jan 5, 6, 7, 8 look like real daily entries.
   // We should add them explicitly if not accounted for.
   // ACTUALLY: The CSV lines provided for Jan 4 are the TOTALS that were corrupted (45612 etc).
   // The lines for Jan 5, 6, 7, 8 look like real daily entries.
@@ -370,8 +372,16 @@ export function loadData(): AppData {
   try {
     const filePath = getDataFilePath();
     if (fs.existsSync(filePath)) {
+      console.log("[Storage] Reading local data file from:", filePath);
       const content = fs.readFileSync(filePath, "utf-8");
       dataCache = JSON.parse(content);
+      console.log("[Storage] Data parsed successfully.");
+
+      // Ensure gameData object exists
+      if (!dataCache.gameData) {
+         console.log("[Storage] Repairing: Initializing gameData object");
+         dataCache.gameData = {};
+      }
       
       // Migration: Disabled auto-seeding - using Supabase Auth now
       // Users must login via Supabase, data will be pulled from there
@@ -488,6 +498,7 @@ export function mergeSupabaseData(userId: string, supabaseData: {
   todos?: Array<{ id?: string | number; text: string; done: boolean; starred: boolean; dueDate?: string; createdAt?: string }>;
   notes?: Array<{ id?: string | number; title: string; content: string; color: string; createdAt?: string }>;
   chapters?: Array<{ id?: string; title: string; coverImage?: string; icon?: string; clear: boolean; createdAt?: string }>;
+  motivations?: Array<{ id?: string; imagePath: string; order: number; createdAt?: string }>;
   gameData?: GameData;
 }): void {
   const data = loadData();
@@ -575,6 +586,24 @@ export function mergeSupabaseData(userId: string, supabaseData: {
     console.log(`[Storage] Added ${supabaseData.chapters.length} chapters`);
   }
 
+  // Add Motivations from Supabase
+  if (supabaseData.motivations) {
+    if (!data.motivations) data.motivations = [];
+    // Remove existing for this user first
+    data.motivations = data.motivations.filter(m => m.userId !== userId);
+    
+    supabaseData.motivations.forEach((m: any) => {
+      data.motivations.push({
+        id: m.id || crypto.randomUUID(),
+        userId,
+        imagePath: m.imagePath,
+        order: m.order,
+        createdAt: m.createdAt || new Date().toISOString()
+      });
+    });
+    console.log(`[Storage] Added ${supabaseData.motivations.length} motivations`);
+  }
+
   // Add Game Data from Supabase
   if (supabaseData.gameData) {
     console.log('[Storage] Merging game data...');
@@ -590,9 +619,9 @@ export function mergeSupabaseData(userId: string, supabaseData: {
       habits: gd.habits || [],
       lastResetDate: gd.lastResetDate || new Date().toISOString().split('T')[0]
     };
-    
-    console.log('[Storage] Game data merged');
+    console.log(`[Storage] Merged game data. Skills: ${gd.skills?.length}, Quests: ${gd.quests?.length}`);
   }
+
   
   saveData(data);
   console.log('[Storage] Merge complete!');
@@ -1053,18 +1082,52 @@ export function getGameData(userId: string): GameData {
     data.gameData[userId] = createDefaultGameData();
     saveData(data);
   }
-  
-  // Check for daily reset
-  const today = new Date().toISOString().split('T')[0];
-  const gameData = data.gameData[userId];
-  
-  if (gameData.lastResetDate !== today) {
-    // Reset all quests and habits completion status
-    gameData.quests.forEach(q => { q.completed = false; });
-    gameData.habits.forEach(h => { h.completed = false; });
-    gameData.lastResetDate = today;
-    saveData(data);
-  }
+    // Check for daily reset
+    const today = new Date().toISOString().split('T')[0];
+    const gameData = data.gameData[userId];
+    
+    // Ensure arrays exist (migration safety)
+    if (!gameData.quests) gameData.quests = [];
+    if (!gameData.habits) gameData.habits = [];
+    if (!gameData.skills) gameData.skills = [];
+
+    const lastReset = gameData.lastResetDate;
+
+    if (lastReset !== today) {
+      // Logic for frequency reset
+      // Only proceed if lastReset is valid, otherwise treating as first run (just set today)
+      let isNewWeek = false;
+      let isNewMonth = false;
+
+      if (lastReset) {
+        const lastDate = new Date(lastReset);
+        const currentDate = new Date(today);
+        
+        if (!isNaN(lastDate.getTime())) {
+          // Check for week change
+          isNewWeek = currentDate.getDay() === 0 && lastDate.getDay() !== 0 || (currentDate.getTime() - lastDate.getTime() > 7 * 24 * 60 * 60 * 1000);
+          // Check for month change
+          isNewMonth = currentDate.getMonth() !== lastDate.getMonth();
+        }
+      }
+
+      // Reset Quests
+      gameData.quests.forEach(q => {
+        if (!q.frequency || q.frequency === 'daily') q.completed = false;
+        if (q.frequency === 'weekly' && isNewWeek) q.completed = false;
+        if (q.frequency === 'monthly' && isNewMonth) q.completed = false;
+      });
+
+      // Reset Habits
+      gameData.habits.forEach(h => {
+        if (!h.frequency || h.frequency === 'daily') h.completed = false;
+        if (h.frequency === 'weekly' && isNewWeek) h.completed = false;
+        if (h.frequency === 'monthly' && isNewMonth) h.completed = false;
+      });
+
+      gameData.lastResetDate = today;
+      saveData(data);
+    }
   
   return gameData;
 }
@@ -1160,17 +1223,20 @@ export function completeQuest(userId: string, questId: string): { success: boole
   // Add XP to the skill
   const skill = gameData.skills.find(s => s.id === quest.skillId);
   let skillLevelUp = false;
-  
-  if (skill) {
-    skill.xp += quest.xpReward;
-    // Check level up
-    while (skill.xp >= skill.xpToNextLevel) {
-      skill.xp -= skill.xpToNextLevel;
-      skill.level++;
-      skill.xpToNextLevel = Math.floor(skill.xpToNextLevel * 1.5);
-      skillLevelUp = true;
+    if (skill) {
+      skill.xp += quest.xpReward || 5; // Default 5
+      // Check level up (Every 100 XP)
+      while (skill.xp >= 100) {
+        skill.xp -= 100;
+        skill.level++;
+        // skill.xpToNextLevel is fixed at 100 now? 
+        // User said: "so code being 790 means 790 total points" and "evey 100 points it levels up automatically 1 levlee"
+        // This implies XP resets to 0? Or keeps accumulating? 
+        // Image shows "Code Level 7, 90 XP". This means 0-100 per level.
+        skill.xpToNextLevel = 100; 
+        skillLevelUp = true;
+      }
     }
-  }
   
   // Add coins
   gameData.character.coins += Math.floor(quest.xpReward / 2);
@@ -1232,24 +1298,28 @@ export function completeHabit(userId: string, habitId: string): { success: boole
   let skillLevelUp = false;
   
   if (habit.type === "good") {
-    // Good habit: add XP to skill
+    // Good habit: +3 XP to skill, +1 HP
     if (habit.skillId) {
       const skill = gameData.skills.find(s => s.id === habit.skillId);
-      if (skill && habit.xpReward) {
-        skill.xp += habit.xpReward;
-        while (skill.xp >= skill.xpToNextLevel) {
-          skill.xp -= skill.xpToNextLevel;
+      if (skill) {
+        skill.xp += 3; // Fixed 3 points per user request
+        while (skill.xp >= 100) {
+          skill.xp -= 100;
           skill.level++;
-          skill.xpToNextLevel = Math.floor(skill.xpToNextLevel * 1.5);
+          skill.xpToNextLevel = 100;
           skillLevelUp = true;
         }
       }
     }
+    
+    // +1 HP
+    gameData.character.hp = Math.min(gameData.character.hp + 1, gameData.character.maxHp);
+    
     // Add coins
     gameData.character.coins += habit.xpReward || 5;
   } else {
-    // Bad habit: reduce HP
-    const damage = habit.hpDamage || 10;
+    // Bad habit: reduce HP by 5
+    const damage = 5; // Fixed 5 damage per user request
     gameData.character.hp -= damage;
     
     if (gameData.character.hp <= 0) {

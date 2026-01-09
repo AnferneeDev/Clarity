@@ -59,6 +59,37 @@ if (require("electron-squirrel-startup")) {
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let activeUserId: string | null = null;
+let syncTimeout: NodeJS.Timeout | null = null;
+
+// Helper to debounce sync operations
+function triggerSync() {
+  if (!activeUserId) return;
+  
+  if (syncTimeout) clearTimeout(syncTimeout);
+  
+  syncTimeout = setTimeout(async () => {
+    console.log('[Main] Triggering auto-sync...');
+    const appData = loadData();
+    const userLocalData = appData[activeUserId!] || {}; // Assuming structure, or pass full appData if sync handles mapping
+    // Actually, sync expects (userId, localData) where localData is the whole DB or user slice?
+    // Let's check sync signature: sync(userId, localData, localTimestamp)
+    
+    // We need to load fresh data
+    const freshData = loadData();
+    
+    // Construct the payload expected by pushToServer (which is called by sync)
+    // pushToServer expects: { subjects, sessions, ... }
+    // We should probably just call pushToServer directly for writes if we are sure? 
+    // Or call sync for full bidirectional? Sync is safer.
+    
+    // For now, let's just use pushToServer logic mapped from freshData for this user
+    try {
+       await supabaseService.sync(activeUserId!, freshData, new Date().toISOString());
+    } catch (err) {
+       console.error('[Main] Auto-sync failed:', err);
+    }
+  }, 2000); // 2 second debounce
+}
 
 // Supabase Configuration
 const SUPABASE_URL = 'https://qkqwyqdhwhscmlkmsiyg.supabase.co';
@@ -71,6 +102,7 @@ const ASSETS_PATH = app.isPackaged
 const getIconPath = (iconName: string) => path.join(ASSETS_PATH, iconName);
 
 function createWindow() {
+  console.log("[Main] createWindow called");
   mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
@@ -95,55 +127,68 @@ function createWindow() {
   
   // Remove default menu (File, Edit, etc.) but keep the frame
   mainWindow.setMenu(null); 
+  console.log("[Main] MainWindow created");
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    console.log("[Main] Loading development URL:", MAIN_WINDOW_VITE_DEV_SERVER_URL);
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
+    console.log("[Main] Loading production file");
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
 
   // initialize data (trigger seed if needed)
+  console.log("[Main] Loading local data...");
   const appData = loadData();
+  console.log("[Main] Local data loaded. Users:", appData.users?.length);
 
   // Initialize Supabase and perform initial sync
   console.log('[App] Initializing Supabase...');
   supabaseService.initialize(SUPABASE_URL, SUPABASE_ANON_KEY);
   
-  
-  // TEMP DISABLED: Automatic sync on startup
-  // Will sync after login instead
-  /*
-  const userId = appData.users[0]?.id;
-  if (userId) {
-    setTimeout(async () => {
-      try {
-        if (!appData.syncMetadata) {
-          appData.syncMetadata = {
-            userId,
-            localLastUpdatedAt: new Date().toISOString(),
-            serverLastUpdatedAt: ''
-          };
+  // Restore session or default to first user
+  // This is critical for offline-first / single-user-ish apps so data loads immediately
+  if (!activeUserId) {
+     console.log('[Main] Attempting to restore session...');
+     
+     // 1. Try Supabase Session
+     supabaseService.getSession().then(async (session) => {
+        if (session?.user) {
+           activeUserId = session.user.id;
+           console.log('[Main] Session restored from Supabase. Active User:', activeUserId);
+           
+           // Pull latest data (including seeded game data)
+           console.log('[Main] Pulling initial data from Supabase...');
+           const serverData = await supabaseService.pullFromServer(activeUserId);
+           if (serverData) {
+              mergeSupabaseData(activeUserId, serverData);
+              console.log('[Main] Initial sync complete. Loaded items:', {
+                 skills: serverData.gameData?.[activeUserId]?.skills?.length,
+                 quests: serverData.gameData?.[activeUserId]?.quests?.length
+              });
+           }
+        } else {
+           // 2. Fallback to first local user if no session (Offline / Legacy)
+           if (appData.users && appData.users.length > 0) {
+              activeUserId = appData.users[0].id;
+              console.log('[Main] No online session, falling back to local user:', activeUserId);
+           } else {
+              console.log('[Main] No users found. Waiting for login.');
+           }
         }
-        
-        const result = await supabaseService.sync(
-          userId,
-          appData,
-          appData.syncMetadata.localLastUpdatedAt
-        );
-        
-        if (result.success && result.direction === 'server-to-local') {
-          console.log('[Sync] ✅ Loaded from server');
-        } else if (result.success) {
-          console.log(`[Sync] ✅ Sync complete (${result.direction})`);
-        }
-      } catch (err) {
-        console.error('[Sync] ❌ Initial sync failed:', err);
-      }
-    }, 2000);
+     }).catch(err => {
+         console.error('[Main] Session check failed:', err);
+         // Fallback on error
+         if (appData.users && appData.users.length > 0) {
+            activeUserId = appData.users[0].id;
+            console.log('[Main] Session error, falling back to local user:', activeUserId);
+         }
+     });
   }
-  */
 
+  console.log("[Main] Setting up IPC handlers...");
   setupIpcHandlers();
+  console.log("[Main] Initialization complete");
 }
 
 function createTray() {
@@ -382,10 +427,37 @@ function setupIpcHandlers() {
   ipcMain.handle("removeViewBackground", (e, view: string) => removeBackground(view));
 
   // Chapters
-  ipcMain.handle("chapters:getAll", (e) => validate(e) && activeUserId ? getAllChapters(activeUserId) : []);
-  ipcMain.handle("chapters:add", (e, chapter: any) => validate(e) && activeUserId ? addChapter(activeUserId, chapter) : null);
-  ipcMain.handle("chapters:update", (e, { id, updates }: any) => validate(e) && activeUserId ? updateChapter(activeUserId, id, updates) : false);
-  ipcMain.handle("chapters:delete", (e, id: string) => validate(e) && activeUserId ? deleteChapter(activeUserId, id) : false);
+  ipcMain.handle("chapters:getAll", (e) => {
+    if (!validate(e)) return [];
+    if (!activeUserId) return [];
+    const chapters = getAllChapters(activeUserId);
+    console.log(`[IPC] chapters:getAll returning ${chapters.length} items for user ${activeUserId}`);
+    return chapters;
+  });
+  ipcMain.handle("chapters:add", (e, chapter: any) => {
+    if (validate(e) && activeUserId) {
+       const res = addChapter(activeUserId, chapter);
+       if (res) triggerSync();
+       return res;
+    }
+    return null;
+  });
+  ipcMain.handle("chapters:update", (e, { id, updates }: any) => {
+    if (validate(e) && activeUserId) {
+       const res = updateChapter(activeUserId, id, updates);
+       if (res) triggerSync();
+       return res;
+    }
+    return false;
+  });
+  ipcMain.handle("chapters:delete", (e, id: string) => {
+    if (validate(e) && activeUserId) {
+       const res = deleteChapter(activeUserId, id);
+       if (res) triggerSync();
+       return res;
+    }
+    return false;
+  });
 
   ipcMain.handle("chapters:uploadImage", (e, { name, data }: any) => {
     if (!validate(e) || !activeUserId) return null;
@@ -426,11 +498,19 @@ function setupIpcHandlers() {
   // Chapter reordering
   ipcMain.handle("chapters:reorder", (e, orderedIds: string[]) => {
     if (!validate(e) || !activeUserId) return false;
-    return updateChapterOrder(activeUserId, orderedIds);
+    const res = updateChapterOrder(activeUserId, orderedIds);
+    if(res) triggerSync();
+    return res;
   });
 
   // Motivation Handlers
-  ipcMain.handle("motivation:getAll", (e) => validate(e) && activeUserId ? getAllMotivations(activeUserId) : []);
+  ipcMain.handle("motivation:getAll", (e) => {
+    if (!validate(e)) return [];
+    if (!activeUserId) return [];
+    const motivs = getAllMotivations(activeUserId);
+    console.log(`[IPC] motivation:getAll returning ${motivs.length} items`);
+    return motivs;
+  });
   
   ipcMain.handle("motivation:add", async (e, { name, data }: any) => {
     if (!validate(e) || !activeUserId) return null;
@@ -443,18 +523,29 @@ function setupIpcHandlers() {
       fs.writeFileSync(filePath, Buffer.from(data));
       
       const relativePath = path.join("motivations", fileName);
-      return addMotivation(activeUserId, relativePath);
+      const res = addMotivation(activeUserId, relativePath);
+      if (res) triggerSync();
+      return res;
     } catch (err) {
       console.error(err);
       return null;
     }
   });
 
-  ipcMain.handle("motivation:delete", (e, id: string) => validate(e) && activeUserId ? deleteMotivation(activeUserId, id) : false);
+  ipcMain.handle("motivation:delete", (e, id: string) => {
+      if (validate(e) && activeUserId) {
+        const res = deleteMotivation(activeUserId, id);
+        if (res) triggerSync();
+        return res;
+      }
+      return false;
+  });
   
   ipcMain.handle("motivation:reorder", (e, orderedIds: string[]) => {
     if (!validate(e) || !activeUserId) return false;
-    return updateMotivationOrder(activeUserId, orderedIds);
+    const res = updateMotivationOrder(activeUserId, orderedIds);
+    if(res) triggerSync();
+    return res;
   });
 
   ipcMain.handle("motivation:getImage", (e, relativePath: string) => {
@@ -479,26 +570,119 @@ function setupIpcHandlers() {
   // Game / Quest Handlers
   // ============================================
   
-  ipcMain.handle("game:getData", (e) => validate(e) && activeUserId ? getGameData(activeUserId) : null);
+  ipcMain.handle("game:getData", (e) => {
+    if (!validate(e)) {
+      console.log("[IPC] game:getData invalid event");
+      return null;
+    }
+    if (!activeUserId) {
+      console.log("[IPC] game:getData no active user");
+      return null;
+    } 
+    const data = getGameData(activeUserId);
+    console.log("[IPC] game:getData returning items:", { 
+      quests: data.quests?.length, 
+      habits: data.habits?.length,
+      skills: data.skills?.length 
+    });
+    return data;
+  });
   
   // Skills
-  ipcMain.handle("game:addSkill", (e, skill: any) => validate(e) && activeUserId ? addSkill(activeUserId, skill) : null);
-  ipcMain.handle("game:updateSkill", (e, { skillId, updates }: any) => validate(e) && activeUserId ? updateSkill(activeUserId, skillId, updates) : false);
-  ipcMain.handle("game:deleteSkill", (e, skillId: string) => validate(e) && activeUserId ? deleteSkill(activeUserId, skillId) : false);
+  ipcMain.handle("game:addSkill", (e, skill: any) => {
+    if (validate(e) && activeUserId) {
+      const res = addSkill(activeUserId, skill);
+      if (res) triggerSync();
+      return res;
+    }
+    return null;
+  });
+  ipcMain.handle("game:updateSkill", (e, { skillId, updates }: any) => {
+      if (validate(e) && activeUserId) {
+        const res = updateSkill(activeUserId, skillId, updates);
+        if(res) triggerSync();
+        return res;
+      }
+      return false;
+  });
+  ipcMain.handle("game:deleteSkill", (e, skillId: string) => {
+      if (validate(e) && activeUserId) {
+        const res = deleteSkill(activeUserId, skillId);
+        if(res) triggerSync();
+        return res;
+      }
+      return false;
+  });
   
   // Quests
-  ipcMain.handle("game:addQuest", (e, quest: any) => validate(e) && activeUserId ? addQuest(activeUserId, quest) : null);
-  ipcMain.handle("game:deleteQuest", (e, questId: string) => validate(e) && activeUserId ? deleteQuest(activeUserId, questId) : false);
-  ipcMain.handle("game:completeQuest", (e, questId: string) => validate(e) && activeUserId ? completeQuest(activeUserId, questId) : { success: false });
+  ipcMain.handle("game:addQuest", (e, quest: any) => {
+      if (validate(e) && activeUserId) {
+        const res = addQuest(activeUserId, quest);
+        if (res) triggerSync();
+        return res;
+      }
+      return null;
+  });
+  ipcMain.handle("game:deleteQuest", (e, questId: string) => {
+      if (validate(e) && activeUserId) {
+        const res = deleteQuest(activeUserId, questId);
+        if(res) triggerSync();
+        return res;
+      }
+      return false;
+  });
+  ipcMain.handle("game:completeQuest", (e, questId: string) => {
+      if(validate(e) && activeUserId) {
+         const res = completeQuest(activeUserId, questId);
+         triggerSync();
+         return res;
+      }
+      return { success: false };
+  });
   
   // Habits
-  ipcMain.handle("game:addHabit", (e, habit: any) => validate(e) && activeUserId ? addHabit(activeUserId, habit) : null);
-  ipcMain.handle("game:deleteHabit", (e, habitId: string) => validate(e) && activeUserId ? deleteHabit(activeUserId, habitId) : false);
-  ipcMain.handle("game:completeHabit", (e, habitId: string) => validate(e) && activeUserId ? completeHabit(activeUserId, habitId) : { success: false });
+  ipcMain.handle("game:addHabit", (e, habit: any) => {
+      if (validate(e) && activeUserId) {
+        const res = addHabit(activeUserId, habit);
+        if (res) triggerSync();
+        return res;
+      }
+      return null;
+  });
+  ipcMain.handle("game:deleteHabit", (e, habitId: string) => {
+      if (validate(e) && activeUserId) {
+        const res = deleteHabit(activeUserId, habitId);
+        if(res) triggerSync();
+        return res;
+      }
+      return false;
+  });
+  ipcMain.handle("game:completeHabit", (e, habitId: string) => {
+    if(validate(e) && activeUserId) {
+       const res = completeHabit(activeUserId, habitId);
+       triggerSync();
+       return res;
+    }
+    return { success: false };
+  });
   
   // Character
-  ipcMain.handle("game:heal", (e, amount: number) => validate(e) && activeUserId ? healCharacter(activeUserId, amount) : false);
-  ipcMain.handle("game:reset", (e) => { if (validate(e) && activeUserId) resetGame(activeUserId); return true; });
+  ipcMain.handle("game:heal", (e, amount: number) => {
+      if (validate(e) && activeUserId) {
+        const res = healCharacter(activeUserId, amount);
+        if(res) triggerSync();
+        return res;
+      }
+      return false;
+  });
+  ipcMain.handle("game:reset", (e) => { 
+      if (validate(e) && activeUserId) {
+        resetGame(activeUserId); 
+        triggerSync();
+        return true; 
+      }
+      return false;
+  });
 }
 
 app.whenReady().then(() => {

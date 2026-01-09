@@ -556,16 +556,11 @@ interface Motivation {
 
 - **Character:** HP (Health), XP (Experience), Level, Coins
 - **Skills:** Definition of skills (e.g., Coding, Fitness) with levels
-- **Quests:** Daily tasks linked to skills (rewards XP/Coins)
-- **Habits:** Good (gain XP) and Bad (lose HP) habits
-- **Daily Reset:** Quests and habits reset daily
-- **Game Over:** HP <= 0 resets progress
-
-**Components:**
-
-- `GameView` - Main container (Grid layout)
-- `Progress` - Custom XP bar
-- `Hearts` - Visual HP representation
+- **Quests:** Daily/Weekly/Monthly tasks linked to skills (rewards XP/Coins)
+- **Habits:** Good (gain XP/HP) and Bad (lose HP) habits
+- **Resets:** Automatic reset of completion status based on Frequency (Daily, Weekly, Monthly)
+- **Game Over:** HP <= 0 resets progress to default
+- **Data Sync:** Fully synced with Supabase (`game_characters`, `game_skills`, `game_quests`, `game_habits` tables)
 
 **Data Model (`GameData`):**
 
@@ -577,14 +572,51 @@ interface GameData {
   habits: GameHabit[];
   lastResetDate: string;
 }
+
+interface GameQuest {
+  id: string;
+  name: string;
+  frequency: "daily" | "weekly" | "monthly";
+  xpReward: number;
+  // ...
+}
 ```
 
 **Mechanics:**
 
-- **Complete Quest:** +XP to Skill, +XP to Character, +Coins
-- **Good Habit:** +XP to Skill (optional), +Coins
-- **Bad Habit:** -HP. If HP <= 0, resets all game data.
-- **Level Up:** Character max HP +10, Skill XP threshold increases
+- **Complete Quest:** +5 XP (Default), +Coins
+- **Good Habit:** +3 XP to specific Skill, +1 HP, +Coins
+- **Bad Habit:** -5 HP. (If HP <= 0, Game Over reset)
+- **Level Up:**
+  - Character: Max HP +10 per level
+  - Skill: Level up every 100 XP (XP resets to 0 on level up)
+
+**Supabase Schema (Game):**
+
+- `game_characters`: Stores HP, XP, Level, Coins, Avatar
+- `game_skills`: Skills linked to user
+- `game_quests`: Quests with frequency and rewards
+- `game_habits`: Habits with type (good/bad), frequency, rewards/penalties
+
+---
+
+## 12. Supabase Storage (Cloud Images)
+
+**Buckets:**
+
+1.  `backgrounds` (Public) - Custom view backgrounds
+2.  `chapters` (Public) - Chapter cover images
+3.  `motivations` (Public) - Motivation board images
+
+**Implementation:**
+
+- **RLS Policies:**
+  - `SELECT`: Public (anyone can view)
+  - `INSERT`: Authenticated users
+  - `UPDATE/DELETE`: Authenticated users (own files only)
+- **Sync Strategy:**
+  - Images are uploaded directly to Supabase Storage via `supabaseService` (Planned/In-progress)
+  - Local fallback used if offline
 
 ---
 

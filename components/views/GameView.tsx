@@ -25,9 +25,10 @@ interface GameQuest {
   id: string;
   name: string;
   icon: string;
-  skillId: string;
+  skillId?: string;
   xpReward: number;
   completed: boolean;
+  frequency: "daily" | "weekly" | "monthly";
 }
 
 interface GameHabit {
@@ -39,6 +40,7 @@ interface GameHabit {
   xpReward?: number;
   hpDamage?: number;
   completed: boolean;
+  frequency: "daily" | "weekly" | "monthly";
 }
 
 interface GameCharacter {
@@ -65,17 +67,21 @@ export default function GameView() {
   const [isAddingQuest, setIsAddingQuest] = useState(false);
   const [newQuestName, setNewQuestName] = useState("");
   const [newQuestSkillId, setNewQuestSkillId] = useState("");
-  const [newQuestXp, setNewQuestXp] = useState(10);
+  const [newQuestXp, setNewQuestXp] = useState(5); // Default 5
+  const [newQuestFrequency, setNewQuestFrequency] = useState<"daily" | "weekly" | "monthly">("daily");
   
   const [isAddingHabit, setIsAddingHabit] = useState(false);
   const [newHabitName, setNewHabitName] = useState("");
   const [newHabitType, setNewHabitType] = useState<"good" | "bad">("good");
   const [newHabitSkillId, setNewHabitSkillId] = useState("");
-  const [newHabitVal, setNewHabitVal] = useState(10); // XP or DMG
+  const [newHabitVal, setNewHabitVal] = useState(0); // Will set defaults in render
+  const [newHabitFrequency, setNewHabitFrequency] = useState<"daily" | "weekly" | "monthly">("daily");
 
   const loadData = async () => {
     try {
+      console.log("[GameView] calling getData...");
       const data = await window.electronAPI.game.getData();
+      console.log("[GameView] received data:", data);
       if (data) {
         setCharacter(data.character);
         setSkills(data.skills || []);
@@ -114,7 +120,8 @@ export default function GameView() {
       name: newQuestName,
       icon: "📜",
       skillId: newQuestSkillId,
-      xpReward: newQuestXp
+      xpReward: newQuestXp,
+      frequency: newQuestFrequency
     });
     setNewQuestName("");
     setNewQuestSkillId("");
@@ -129,8 +136,9 @@ export default function GameView() {
       icon: newHabitType === "good" ? "✨" : "💀",
       type: newHabitType,
       skillId: newHabitType === "good" ? newHabitSkillId : undefined,
-      xpReward: newHabitType === "good" ? newHabitVal : 0,
-      hpDamage: newHabitType === "bad" ? newHabitVal : 0
+      xpReward: newHabitType === "good" ? 3 : 0, // Fixed 3
+      hpDamage: newHabitType === "bad" ? 5 : 0,  // Fixed 5
+      frequency: newHabitFrequency
     });
     setNewHabitName("");
     setIsAddingHabit(false);
@@ -345,13 +353,25 @@ export default function GameView() {
                      <option value="">Select Related Skill (Optional)</option>
                      {skills.map(s => <option key={s.id} value={s.id}>{s.name} (Lvl {s.level})</option>)}
                    </select>
-                   <Input 
-                     type="number"
-                     placeholder="XP Reward" 
-                     value={newQuestXp}
-                     onChange={(e) => setNewQuestXp(Number(e.target.value))}
-                     className="bg-gray-800 border-gray-700 text-white"
-                   />
+                   <select 
+                     className="w-full bg-gray-800 border border-gray-700 text-white rounded-md p-2 text-sm"
+                     value={newQuestFrequency}
+                     onChange={(e) => setNewQuestFrequency(e.target.value as any)}
+                   >
+                     <option value="daily">Daily</option>
+                     <option value="weekly">Weekly</option>
+                     <option value="monthly">Monthly</option>
+                   </select>
+                   <div className="flex gap-2">
+                      <Input 
+                        type="number"
+                        placeholder="XP Reward" 
+                        value={newQuestXp}
+                        onChange={(e) => setNewQuestXp(Number(e.target.value))}
+                        className="bg-gray-800 border-gray-700 text-white flex-1"
+                      />
+                      <div className="text-xs text-gray-500 self-center">Default: 5</div>
+                   </div>
                  </div>
                  <Button onClick={handleAddQuest} className="w-full bg-orange-600 hover:bg-orange-500">Add Quest</Button>
                </div>
@@ -443,13 +463,16 @@ export default function GameView() {
                      <option value="">Linked Skill (Optional)</option>
                      {skills.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                    </select>
-                   <div className="text-xs text-gray-400">XP Reward</div>
-                   <Input 
-                     type="number"
-                     value={newHabitVal}
-                     onChange={(e) => setNewHabitVal(Number(e.target.value))}
-                     className="bg-gray-800 border-gray-700 text-white"
-                   />
+                   <select 
+                     className="w-full bg-gray-800 border border-gray-700 text-white rounded-md p-2 text-sm"
+                     value={newHabitFrequency}
+                     onChange={(e) => setNewHabitFrequency(e.target.value as any)}
+                   >
+                     <option value="daily">Daily</option>
+                     <option value="weekly">Weekly</option>
+                     <option value="monthly">Monthly</option>
+                   </select>
+                   <div className="text-xs text-gray-400">Rewards: +3 Skill XP, +1 HP, +{newHabitVal || 5} Coins</div>
                    <Button onClick={handleAddHabit} className="w-full bg-green-600 hover:bg-green-500">Add Habit</Button>
                  </div>
               </PopoverContent>
@@ -499,13 +522,16 @@ export default function GameView() {
                      onChange={(e) => setNewHabitName(e.target.value)}
                      className="bg-gray-800 border-gray-700 text-white"
                    />
-                   <div className="text-xs text-gray-400">HP Damage</div>
-                   <Input 
-                     type="number"
-                     value={newHabitVal}
-                     onChange={(e) => setNewHabitVal(Number(e.target.value))}
-                     className="bg-gray-800 border-gray-700 text-white"
-                   />
+                   <select 
+                     className="w-full bg-gray-800 border border-gray-700 text-white rounded-md p-2 text-sm"
+                     value={newHabitFrequency}
+                     onChange={(e) => setNewHabitFrequency(e.target.value as any)}
+                   >
+                     <option value="daily">Daily</option>
+                     <option value="weekly">Weekly</option>
+                     <option value="monthly">Monthly</option>
+                   </select>
+                   <div className="text-xs text-red-400">Penalty: -5 HP</div>
                    <Button onClick={handleAddHabit} className="w-full bg-red-600 hover:bg-red-500">Add Habit</Button>
                  </div>
               </PopoverContent>

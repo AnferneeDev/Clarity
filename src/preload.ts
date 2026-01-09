@@ -15,10 +15,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Auth
   auth: {
-    login: (u: string, p: string) => ipcRenderer.invoke("auth:login", { username: u, password: p }),
-    register: (u: string, p: string) => ipcRenderer.invoke("auth:register", { username: u, password: p }),
-    verify: (id: string) => ipcRenderer.invoke("auth:verify", id),
+    login: (username: string) => ipcRenderer.invoke("auth:login", { username }),
     logout: () => ipcRenderer.invoke("auth:logout"),
+    getSession: () => ipcRenderer.invoke("auth:getSession"),
   },
 
   // Timer / Subjects
@@ -68,5 +67,35 @@ contextBridge.exposeInMainWorld("electronAPI", {
     delete: (id: string) => ipcRenderer.invoke("chapters:delete", id),
     uploadImage: (file: { name: string; data: Uint8Array }) => ipcRenderer.invoke("chapters:uploadImage", file),
     getImage: (path: string) => ipcRenderer.invoke("chapters:getImage", path),
+    reorder: (orderedIds: string[]) => ipcRenderer.invoke("chapters:reorder", orderedIds),
+  },
+
+  // Motivation
+  motivation: {
+    getAll: () => ipcRenderer.invoke("motivation:getAll"),
+    add: (file: { name: string; data: Uint8Array }) => ipcRenderer.invoke("motivation:add", file),
+    delete: (id: string) => ipcRenderer.invoke("motivation:delete", id),
+    reorder: (orderedIds: string[]) => ipcRenderer.invoke("motivation:reorder", orderedIds),
+    getImage: (path: string) => ipcRenderer.invoke("motivation:getImage", path),
+  },
+
+  // Game / Quest System
+  game: {
+    getData: () => ipcRenderer.invoke("game:getData"),
+    // Skills
+    addSkill: (skill: any) => ipcRenderer.invoke("game:addSkill", skill),
+    updateSkill: (skillId: string, updates: any) => ipcRenderer.invoke("game:updateSkill", { skillId, updates }),
+    deleteSkill: (skillId: string) => ipcRenderer.invoke("game:deleteSkill", skillId),
+    // Quests
+    addQuest: (quest: any) => ipcRenderer.invoke("game:addQuest", quest),
+    deleteQuest: (questId: string) => ipcRenderer.invoke("game:deleteQuest", questId),
+    completeQuest: (questId: string) => ipcRenderer.invoke("game:completeQuest", questId),
+    // Habits
+    addHabit: (habit: any) => ipcRenderer.invoke("game:addHabit", habit),
+    deleteHabit: (habitId: string) => ipcRenderer.invoke("game:deleteHabit", habitId),
+    completeHabit: (habitId: string) => ipcRenderer.invoke("game:completeHabit", habitId),
+    // Character
+    heal: (amount: number) => ipcRenderer.invoke("game:heal", amount),
+    reset: () => ipcRenderer.invoke("game:reset"),
   },
 });

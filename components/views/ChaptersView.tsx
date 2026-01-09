@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "../ui/button";
-import { Plus, Image as ImageIcon, CheckSquare, Trash2, X, Edit2 } from "lucide-react";
+import { Plus, Image as ImageIcon, CheckSquare, Trash2, X, Edit2, GripVertical } from "lucide-react";
 import { Input } from "../ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { EMOJI_CATEGORIES } from "../../src/constants/emojis";
@@ -30,6 +30,9 @@ export default function ChaptersView() {
   const [editIcon, setEditIcon] = useState("📌");
   const [editCover, setEditCover] = useState<{ name: string; data: Uint8Array } | null>(null);
   const [editCoverPreview, setEditCoverPreview] = useState<string | null>(null);
+
+  // Drag state
+  const [draggedItem, setDraggedItem] = useState<string | null>(null);
 
   useEffect(() => {
     loadChapters();
@@ -157,16 +160,51 @@ export default function ChaptersView() {
     }
   };
 
+  // Drag handlers for reordering
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedItem(id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedItem || draggedItem === targetId) return;
+
+    const draggedIndex = chapters.findIndex(c => c.id === draggedItem);
+    const targetIndex = chapters.findIndex(c => c.id === targetId);
+    
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    // Reorder locally
+    const newOrder = [...chapters];
+    const [removed] = newOrder.splice(draggedIndex, 1);
+    newOrder.splice(targetIndex, 0, removed);
+    
+    setChapters(newOrder);
+    setDraggedItem(null);
+
+    // Save new order
+    const orderedIds = newOrder.map(c => c.id);
+    await window.electronAPI.chapters.reorder(orderedIds);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+  };
+
   return (
     <div className="w-full h-full flex flex-col p-4 md:p-6 overflow-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-3xl font-bold text-white mb-1">Chapters</h2>
-          <div className="flex items-center gap-2 text-sm">
-             <span className="bg-white/10 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
-               ☀️ On going
-             </span>
+          <div className="text-sm text-white/60">
+            {chapters.length} chapters • Drag to reorder
           </div>
         </div>
         <Button onClick={() => setIsCreating(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
@@ -178,7 +216,17 @@ export default function ChaptersView() {
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {chapters.map((chapter: any) => (
-          <div key={chapter.id} className="group bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-48 transition-all hover:shadow-md relative">
+          <div
+            key={chapter.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, chapter.id)}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, chapter.id)}
+            onDragEnd={handleDragEnd}
+            className={`group bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-48 transition-all hover:shadow-md relative cursor-move border-2 ${
+              draggedItem === chapter.id ? "opacity-50 border-blue-500" : "border-transparent"
+            }`}
+          >
             {/* Cover Image (Top half) */}
             <div className="h-1/2 bg-gray-100 w-full relative overflow-hidden">
                {chapter.coverImageData ? (
@@ -192,12 +240,13 @@ export default function ChaptersView() {
 
             {/* Content (Bottom half) */}
             <div className="p-3 flex-1 flex flex-col justify-between relative">
-               {/* Icon overlay - sitting somewhat on the line or just above text */}
-               <div className="text-xl mb-1">{chapter.icon || "📄"}</div>
-               
-               <h3 className="text-sm font-semibold text-gray-900 leading-tight line-clamp-2 mb-2">
-                 {chapter.title}
-               </h3>
+               {/* Icon and Title on same line */}
+               <div className="flex items-start gap-2 mb-2">
+                 <span className="text-xl flex-shrink-0">{chapter.icon || "📄"}</span>
+                 <h3 className="text-sm font-semibold text-gray-900 leading-tight line-clamp-2">
+                   {chapter.title}
+                 </h3>
+               </div>
 
                {/* Clear checkbox */}
                <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => toggleClear(chapter)}>
@@ -206,6 +255,13 @@ export default function ChaptersView() {
                  </div>
                  <span className={`text-xs ${chapter.clear ? 'text-gray-400 line-through' : 'text-gray-500'}`}>clear!</span>
                </div>
+            </div>
+
+            {/* Drag handle indicator */}
+            <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="bg-black/60 rounded p-1">
+                <GripVertical className="w-4 h-4 text-white" />
+              </div>
             </div>
 
             {/* Edit/Delete Overlay (on hover) */}

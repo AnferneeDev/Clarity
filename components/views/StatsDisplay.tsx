@@ -208,6 +208,33 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
   // ADDED: State for all subjects (including hidden ones)
   const [allSubjects, setAllSubjects] = useState<string[]>([]);
 
+  // ADDED: State for hidden subjects (visibility filter)
+  const [hiddenSubjects, setHiddenSubjects] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const stored = localStorage.getItem("stats-hidden-subjects");
+      if (stored) return new Set(JSON.parse(stored));
+    } catch (e) { console.error(e); }
+    return new Set();
+  });
+
+  // Save hidden subjects to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("stats-hidden-subjects", JSON.stringify([...hiddenSubjects]));
+    } catch (e) { console.error(e); }
+  }, [hiddenSubjects]);
+
+  // Toggle subject visibility
+  const toggleSubjectVisibility = (subject: string) => {
+    setHiddenSubjects(prev => {
+      const next = new Set(prev);
+      if (next.has(subject)) next.delete(subject);
+      else next.add(subject);
+      return next;
+    });
+  };
+
   // CHANGED: Load data from new timerDb
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -312,8 +339,22 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
   const filterActiveClass = "bg-[var(--accent-primary)] text-white border-[var(--accent-primary)]";
   const filterInactiveClass = "bg-gray-400/25 text-white/90 border-gray-700/50 hover:bg-white/20";
 
-  const currentTableData = tableConfig.combinePerDay ? filteredData.dailyAggregatedSessions : filteredData.aggregatedSessions;
+  // Filter out hidden subjects and sort by date descending (newest first)
+  const filteredTableData = (tableConfig.combinePerDay 
+    ? filteredData.dailyAggregatedSessions 
+    : filteredData.aggregatedSessions.filter(s => !hiddenSubjects.has((s as AggregatedSession).subject_name))
+  ).sort((a, b) => {
+    // Sort by date descending (newest first)
+    if (a.date > b.date) return -1;
+    if (a.date < b.date) return 1;
+    return 0;
+  });
+  const currentTableData = filteredTableData;
   const visibleColumnCount = [tableConfig.showSubject, tableConfig.showDate, tableConfig.showFocusTime].filter(Boolean).length;
+
+  // Also filter subject stats for progress view
+  const visibleSubjectStats = filteredData.subjectStats.filter(s => !hiddenSubjects.has(s.subject));
+  const visibleTotalMinutes = visibleSubjectStats.reduce((acc, s) => acc + s.total_minutes, 0);
 
   const handleConfigChange = (updates: Partial<TableConfig>) => {
     setTableConfig((prev) => ({ ...prev, ...updates }));
@@ -387,24 +428,44 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
                     </div>
                   </div>
 
-                  {/* ADDED: Subject Management Section */}
+                  {/* Subject Visibility Filter */}
                   <div className="border-t border-gray-700 pt-2">
-                    <h5 className="text-sm font-medium mb-2">Manage Subjects</h5>
+                    <h5 className="text-sm font-medium mb-2">Show/Hide Subjects</h5>
                     <div className="space-y-2 max-h-32 overflow-y-auto">
                       {allSubjects.map((subject) => (
                         <div key={subject} className="flex items-center justify-between gap-2">
-                          {/* CHANGED: Format subject name for display */}
-                          <span className="text-sm text-white/80 flex-1 truncate" title={subject}>
+                          <Label htmlFor={`visibility-${subject}`} className="text-sm text-white/80 flex-1 truncate cursor-pointer" title={subject}>
                             {formatSubjectName(subject)}
-                          </span>
-                          <Button variant="destructive" size="sm" className="h-6 w-6 p-0 flex-shrink-0 bg-red-600 hover:bg-red-700" onClick={() => handleDeleteSubject(subject)} title={`Delete ${subject} and all its data`}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          </Label>
+                          <Switch 
+                            id={`visibility-${subject}`} 
+                            checked={!hiddenSubjects.has(subject)} 
+                            onCheckedChange={() => toggleSubjectVisibility(subject)} 
+                          />
                         </div>
                       ))}
                       {allSubjects.length === 0 && <div className="text-sm text-white/60 text-center py-2">No subjects found</div>}
                     </div>
-                    <div className="text-xs text-white/40 mt-1">Total: {allSubjects.length} subjects</div>
+                    <div className="text-xs text-white/40 mt-1">Showing: {allSubjects.length - hiddenSubjects.size} of {allSubjects.length}</div>
+                  </div>
+
+                  {/* Eliminate Subjects Section */}
+                  <div className="border-t border-gray-700 pt-2">
+                    <h5 className="text-sm font-medium mb-2 text-red-400">Eliminate Subjects</h5>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {allSubjects.map((subject) => (
+                        <div key={`del-${subject}`} className="flex items-center justify-between gap-2">
+                          <span className="text-sm text-white/80 flex-1 truncate" title={subject}>
+                            {formatSubjectName(subject)}
+                          </span>
+                          <Button variant="destructive" size="sm" className="h-6 px-2 flex-shrink-0 bg-red-600 hover:bg-red-700" onClick={() => handleDeleteSubject(subject)} title={`Permanently delete ${subject} and all its data`}>
+                            <Trash2 className="h-3 w-3 mr-1" /> Delete
+                          </Button>
+                        </div>
+                      ))}
+                      {allSubjects.length === 0 && <div className="text-sm text-white/60 text-center py-2">No subjects to delete</div>}
+                    </div>
+                    <div className="text-xs text-red-400/60 mt-1">⚠️ Deleting is permanent!</div>
                   </div>
 
                   <div className="flex justify-end pt-2">
@@ -495,10 +556,10 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
             </Table>
           ) : (
             <div className="space-y-3 p-4">
-              {filteredData.subjectStats
+              {visibleSubjectStats
                 .filter((s) => s.total_minutes > 0)
                 .map((stat) => {
-                  const percent = filteredData.totalMinutes > 0 ? (stat.total_minutes / filteredData.totalMinutes) * 100 : 0;
+                  const percent = visibleTotalMinutes > 0 ? (stat.total_minutes / visibleTotalMinutes) * 100 : 0;
                   return (
                     <div key={stat.subject} className="flex items-center justify-between">
                       <div className="flex-1">
@@ -514,7 +575,7 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
                     </div>
                   );
                 })}
-              {filteredData.subjectStats.filter((s) => s.total_minutes > 0).length === 0 && (
+              {visibleSubjectStats.filter((s) => s.total_minutes > 0).length === 0 && (
                 <div className="text-center py-8 text-white/60">{dateFilter === "custom" && (!customStartDate || !customEndDate) ? "Please select a date range" : "No study data recorded for this period"}</div>
               )}
             </div>
@@ -526,7 +587,7 @@ export default function StatsDisplay({ viewMode, setViewMode }: { viewMode: "pro
               <TableRow className="hover:bg-transparent">
                 {tableConfig.showSubject && <TableCell className="text-white font-medium text-sm py-4">{filteredData.dateRange} Total</TableCell>}
                 {tableConfig.showDate && <TableCell className="text-white py-4"></TableCell>}
-                {tableConfig.showFocusTime && <TableCell className="text-white font-medium text-sm py-4">{formatMinutes(filteredData.totalMinutes)}</TableCell>}
+                {tableConfig.showFocusTime && <TableCell className="text-white font-medium text-sm py-4">{formatMinutes(visibleTotalMinutes)}</TableCell>}
               </TableRow>
             </TableBody>
           </Table>

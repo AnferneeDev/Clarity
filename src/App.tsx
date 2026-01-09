@@ -9,31 +9,25 @@ import TodoView from "../components/views/TodoView";
 import NotesView from "../components/views/NotesView";
 import LoginView from "../components/views/LoginView";
 import ChaptersView from "../components/views/ChaptersView";
+import MotivationView from "../components/views/MotivationView";
+import GameView from "../components/views/GameView";
 import useBackground from "../hooks/useBackground";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"timer" | "stats" | "settings" | "todo" | "notes" | "chapters">("timer");
+  const [activeTab, setActiveTab] = useState<"timer" | "stats" | "settings" | "todo" | "notes" | "chapters" | "motivation" | "game">("timer");
   const { backgrounds, handleBackgroundChange, removeBackground, getBackgroundForView } = useBackground();
 
   useEffect(() => {
     const checkAuth = async () => {
       const storedId = localStorage.getItem("clarity_user_id");
-      if (storedId) {
-        try {
-          const user = await window.electronAPI.auth.verify(storedId);
-          if (user) {
-            setCurrentUser(user);
-            setIsAuthenticated(true);
-          } else {
-            localStorage.removeItem("clarity_user_id");
-            localStorage.removeItem("clarity_username");
-          }
-        } catch (err) {
-          localStorage.removeItem("clarity_user_id");
-        }
+      const storedUsername = localStorage.getItem("clarity_username");
+      if (storedId && storedUsername) {
+        // Restore session from localStorage
+        setCurrentUser({ id: storedId, username: storedUsername });
+        setIsAuthenticated(true);
       }
       setIsLoading(false);
     };
@@ -69,7 +63,7 @@ export default function App() {
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <div className="h-screen w-screen flex bg-pink-700" style={currentBackground ? { backgroundImage: `url(${currentBackground})`, backgroundSize: "cover", backgroundPosition: "center" } : {}}>
+        <div className="h-screen w-screen flex bg-black" style={currentBackground ? { backgroundImage: `url(${currentBackground})`, backgroundSize: "cover", backgroundPosition: "center" } : {}}>
           <SidebarNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
           <main className="flex-1 flex flex-col min-h-0">
@@ -138,6 +132,8 @@ export default function App() {
                 >
                   {!overlayActive && activeTab === "stats" && <StatsView />}
                   {!overlayActive && activeTab === "chapters" && <ChaptersView />}
+                  {!overlayActive && activeTab === "motivation" && <MotivationView />}
+                  {!overlayActive && activeTab === "game" && <GameView />}
                   {!overlayActive && activeTab === "notes" && <NotesView />}
                   {!overlayActive && activeTab === "settings" && (
                     <SettingsView 

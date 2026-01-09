@@ -66,6 +66,66 @@ export interface Note {
   createdAt: string;
 }
 
+export interface Motivation {
+  id: string;
+  userId: string;
+  imagePath: string;
+  order: number;
+  createdAt: string;
+}
+
+// ============================================
+// Game / Quest Types
+// ============================================
+
+export interface GameCharacter {
+  hp: number;
+  maxHp: number;
+  xp: number;
+  level: number;
+  coins: number;
+  avatar?: string;
+}
+
+export interface GameSkill {
+  id: string;
+  name: string;
+  icon: string;
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
+}
+
+export interface GameQuest {
+  id: string;
+  name: string;
+  icon: string;
+  skillId: string;
+  xpReward: number;
+  completed: boolean;
+  lastCompletedDate?: string;
+}
+
+export interface GameHabit {
+  id: string;
+  name: string;
+  icon: string;
+  type: "good" | "bad";
+  skillId?: string; // Good habits give XP to a skill
+  xpReward?: number; // Good habits
+  hpDamage?: number; // Bad habits
+  completed: boolean;
+  lastCompletedDate?: string;
+}
+
+export interface GameData {
+  character: GameCharacter;
+  skills: GameSkill[];
+  quests: GameQuest[];
+  habits: GameHabit[];
+  lastResetDate: string;
+}
+
 export interface AppData {
   users: User[];
   subjects: Subject[];
@@ -73,6 +133,8 @@ export interface AppData {
   todos: Todo[];
   chapters: Chapter[];
   notes: Note[];
+  motivations: Motivation[];
+  gameData: Record<string, GameData>; // userId -> GameData
   backgrounds: Record<string, string>; // view -> relative path
   settings: Record<string, {
     focusMinutes: number;
@@ -97,6 +159,8 @@ const DEFAULT_DATA: AppData = {
   todos: [],
   chapters: [],
   notes: [],
+  motivations: [],
+  gameData: {},
   backgrounds: {},
   settings: {},
 };
@@ -309,15 +373,11 @@ export function loadData(): AppData {
       const content = fs.readFileSync(filePath, "utf-8");
       dataCache = JSON.parse(content);
       
-      // Migration: If no users array, it means it's old format. Wiping/Resetting to seed.
-      // Or if fresh file, seed.
+      // Migration: Disabled auto-seeding - using Supabase Auth now
+      // Users must login via Supabase, data will be pulled from there
       if (!dataCache?.users || !Array.isArray(dataCache.users)) {
-         console.log("[Storage] Old data format detected or empty. Resetting and Seeding...");
+         console.log("[Storage] Initializing empty data structure (Supabase Auth enabled)");
          dataCache = { ...DEFAULT_DATA };
-         seedInitialData(dataCache);
-         saveData(dataCache);
-      } else if (dataCache.users.length === 0) {
-         seedInitialData(dataCache);
          saveData(dataCache);
       } else {
         // Migration: Check if we need to seed specific chapters (User requested)
@@ -416,6 +476,126 @@ export function saveData(data?: AppData): void {
   } catch (err) {
     console.error("[Storage] Failed to save data:", err);
   }
+}
+
+/**
+ * Merge data pulled from Supabase into local storage
+ * This replaces all data for the specified userId with data from Supabase
+ */
+export function mergeSupabaseData(userId: string, supabaseData: {
+  subjects?: Array<{ name: string; hidden?: boolean; createdAt?: string }>;
+  sessions?: Array<{ id?: string; subjectName: string; date: string; minutes: number; createdAt?: string }>;
+  todos?: Array<{ id?: string | number; text: string; done: boolean; starred: boolean; dueDate?: string; createdAt?: string }>;
+  notes?: Array<{ id?: string | number; title: string; content: string; color: string; createdAt?: string }>;
+  chapters?: Array<{ id?: string; title: string; coverImage?: string; icon?: string; clear: boolean; createdAt?: string }>;
+  gameData?: GameData;
+}): void {
+  const data = loadData();
+  console.log('[Storage] Merging Supabase data for user:', userId);
+  
+  // Remove existing data for this user
+  data.subjects = data.subjects.filter(s => s.userId !== userId);
+  data.sessions = data.sessions.filter(s => s.userId !== userId);
+  data.todos = data.todos.filter(t => t.userId !== userId);
+  data.notes = data.notes.filter(n => n.userId !== userId);
+  data.chapters = (data.chapters || []).filter(c => c.userId !== userId);
+  
+  // Add subjects from Supabase
+  if (supabaseData.subjects) {
+    supabaseData.subjects.forEach((s, i) => {
+      data.subjects.push({
+        id: `supa-sub-${userId}-${i}`,
+        userId,
+        name: s.name,
+        hidden: s.hidden || false,
+        createdAt: s.createdAt || new Date().toISOString()
+      });
+    });
+    console.log(`[Storage] Added ${supabaseData.subjects.length} subjects`);
+  }
+  
+  // Add sessions from Supabase
+  if (supabaseData.sessions) {
+    supabaseData.sessions.forEach((s, i) => {
+      data.sessions.push({
+        id: s.id || `supa-sess-${userId}-${i}`,
+        userId,
+        subjectName: s.subjectName,
+        date: s.date,
+        minutes: s.minutes
+      });
+    });
+    console.log(`[Storage] Added ${supabaseData.sessions.length} sessions`);
+  }
+  
+  // Add todos from Supabase
+  if (supabaseData.todos) {
+    supabaseData.todos.forEach((t, i) => {
+      data.todos.push({
+        id: typeof t.id === 'number' ? t.id : Date.now() + i,
+        userId,
+        text: t.text,
+        done: t.done,
+        starred: t.starred,
+        dueDate: t.dueDate,
+        createdAt: t.createdAt || new Date().toISOString()
+      });
+    });
+    console.log(`[Storage] Added ${supabaseData.todos.length} todos`);
+  }
+  
+  // Add notes from Supabase
+  if (supabaseData.notes) {
+    supabaseData.notes.forEach((n, i) => {
+      data.notes.push({
+        id: typeof n.id === 'number' ? n.id : Date.now() + i,
+        userId,
+        title: n.title,
+        content: n.content,
+        color: n.color,
+        createdAt: n.createdAt || new Date().toISOString()
+      });
+    });
+    console.log(`[Storage] Added ${supabaseData.notes.length} notes`);
+  }
+  
+  // Add chapters from Supabase
+  if (supabaseData.chapters) {
+    supabaseData.chapters.forEach((c, i) => {
+      data.chapters.push({
+        id: c.id || `supa-chap-${userId}-${i}`,
+        userId,
+        title: c.title,
+        coverImage: c.coverImage,
+        icon: c.icon,
+        clear: c.clear,
+        createdAt: c.createdAt || new Date().toISOString()
+      });
+    });
+    console.log(`[Storage] Added ${supabaseData.chapters.length} chapters`);
+  }
+
+  // Add Game Data from Supabase
+  if (supabaseData.gameData) {
+    console.log('[Storage] Merging game data...');
+    // Simply overwrite the game data for this user
+    if (!data.gameData) data.gameData = {};
+    
+    // Ensure dates are strings
+    const gd = supabaseData.gameData;
+    data.gameData[userId] = {
+      character: gd.character,
+      skills: gd.skills || [],
+      quests: gd.quests || [],
+      habits: gd.habits || [],
+      lastResetDate: gd.lastResetDate || new Date().toISOString().split('T')[0]
+    };
+    
+    console.log('[Storage] Game data merged');
+  }
+  
+  saveData(data);
+  console.log('[Storage] Merge complete!');
 }
 
 // ============================================
@@ -767,4 +947,335 @@ export function deleteChapter(userId: string, id: string): boolean {
     return true;
   }
   return false;
+}
+
+// Update chapter order
+export function updateChapterOrder(userId: string, orderedIds: string[]): boolean {
+  const data = loadData();
+  if (!data.chapters) return false;
+  
+  // Reorder chapters based on provided IDs
+  const userChapters = data.chapters.filter(c => c.userId === userId);
+  const otherChapters = data.chapters.filter(c => c.userId !== userId);
+  
+  const reordered = orderedIds.map(id => userChapters.find(c => c.id === id)).filter(Boolean) as Chapter[];
+  data.chapters = [...reordered, ...otherChapters];
+  
+  saveData(data);
+  return true;
+}
+
+// ============================================
+// Motivation Operations
+// ============================================
+
+export function getAllMotivations(userId: string): Motivation[] {
+  const data = loadData();
+  if (!data.motivations) data.motivations = [];
+  return data.motivations.filter(m => m.userId === userId).sort((a, b) => a.order - b.order);
+}
+
+export function addMotivation(userId: string, imagePath: string): Motivation {
+  const data = loadData();
+  if (!data.motivations) data.motivations = [];
+  
+  const userMotivations = data.motivations.filter(m => m.userId === userId);
+  const maxOrder = userMotivations.length > 0 ? Math.max(...userMotivations.map(m => m.order)) : -1;
+  
+  const newMotivation: Motivation = {
+    id: crypto.randomUUID(),
+    userId,
+    imagePath,
+    order: maxOrder + 1,
+    createdAt: new Date().toISOString()
+  };
+  
+  data.motivations.push(newMotivation);
+  saveData(data);
+  return newMotivation;
+}
+
+export function deleteMotivation(userId: string, id: string): boolean {
+  const data = loadData();
+  if (!data.motivations) return false;
+  
+  const initialLength = data.motivations.length;
+  data.motivations = data.motivations.filter(m => !(m.id === id && m.userId === userId));
+  
+  if (data.motivations.length !== initialLength) {
+    saveData(data);
+    return true;
+  }
+  return false;
+}
+
+export function updateMotivationOrder(userId: string, orderedIds: string[]): boolean {
+  const data = loadData();
+  if (!data.motivations) return false;
+  
+  // Update order based on position in array
+  orderedIds.forEach((id, index) => {
+    const motivation = data.motivations.find(m => m.id === id && m.userId === userId);
+    if (motivation) motivation.order = index;
+  });
+  
+  saveData(data);
+  return true;
+}
+
+// ============================================
+// Game Operations
+// ============================================
+
+const DEFAULT_CHARACTER: GameCharacter = {
+  hp: 100,
+  maxHp: 100,
+  xp: 0,
+  level: 1,
+  coins: 0
+};
+
+function createDefaultGameData(): GameData {
+  return {
+    character: { ...DEFAULT_CHARACTER },
+    skills: [],
+    quests: [],
+    habits: [],
+    lastResetDate: new Date().toISOString().split('T')[0]
+  };
+}
+
+export function getGameData(userId: string): GameData {
+  const data = loadData();
+  if (!data.gameData) data.gameData = {};
+  
+  if (!data.gameData[userId]) {
+    data.gameData[userId] = createDefaultGameData();
+    saveData(data);
+  }
+  
+  // Check for daily reset
+  const today = new Date().toISOString().split('T')[0];
+  const gameData = data.gameData[userId];
+  
+  if (gameData.lastResetDate !== today) {
+    // Reset all quests and habits completion status
+    gameData.quests.forEach(q => { q.completed = false; });
+    gameData.habits.forEach(h => { h.completed = false; });
+    gameData.lastResetDate = today;
+    saveData(data);
+  }
+  
+  return gameData;
+}
+
+export function saveGameData(userId: string, gameData: GameData): void {
+  const data = loadData();
+  if (!data.gameData) data.gameData = {};
+  data.gameData[userId] = gameData;
+  saveData(data);
+}
+
+export function addSkill(userId: string, skill: Omit<GameSkill, 'id'>): GameSkill {
+  const data = loadData();
+  const gameData = data.gameData[userId] || createDefaultGameData();
+  
+  const newSkill: GameSkill = {
+    ...skill,
+    id: crypto.randomUUID()
+  };
+  
+  gameData.skills.push(newSkill);
+  data.gameData[userId] = gameData;
+  saveData(data);
+  return newSkill;
+}
+
+export function updateSkill(userId: string, skillId: string, updates: Partial<GameSkill>): boolean {
+  const data = loadData();
+  const gameData = data.gameData[userId];
+  if (!gameData) return false;
+  
+  const skill = gameData.skills.find(s => s.id === skillId);
+  if (!skill) return false;
+  
+  Object.assign(skill, updates);
+  saveData(data);
+  return true;
+}
+
+export function deleteSkill(userId: string, skillId: string): boolean {
+  const data = loadData();
+  const gameData = data.gameData[userId];
+  if (!gameData) return false;
+  
+  const index = gameData.skills.findIndex(s => s.id === skillId);
+  if (index === -1) return false;
+  
+  gameData.skills.splice(index, 1);
+  saveData(data);
+  return true;
+}
+
+export function addQuest(userId: string, quest: Omit<GameQuest, 'id' | 'completed'>): GameQuest {
+  const data = loadData();
+  const gameData = data.gameData[userId] || createDefaultGameData();
+  
+  const newQuest: GameQuest = {
+    ...quest,
+    id: crypto.randomUUID(),
+    completed: false
+  };
+  
+  gameData.quests.push(newQuest);
+  data.gameData[userId] = gameData;
+  saveData(data);
+  return newQuest;
+}
+
+export function deleteQuest(userId: string, questId: string): boolean {
+  const data = loadData();
+  const gameData = data.gameData[userId];
+  if (!gameData) return false;
+  
+  const index = gameData.quests.findIndex(q => q.id === questId);
+  if (index === -1) return false;
+  
+  gameData.quests.splice(index, 1);
+  saveData(data);
+  return true;
+}
+
+export function completeQuest(userId: string, questId: string): { success: boolean; skillLevelUp?: boolean } {
+  const data = loadData();
+  const gameData = data.gameData[userId];
+  if (!gameData) return { success: false };
+  
+  const quest = gameData.quests.find(q => q.id === questId);
+  if (!quest || quest.completed) return { success: false };
+  
+  quest.completed = true;
+  quest.lastCompletedDate = new Date().toISOString();
+  
+  // Add XP to the skill
+  const skill = gameData.skills.find(s => s.id === quest.skillId);
+  let skillLevelUp = false;
+  
+  if (skill) {
+    skill.xp += quest.xpReward;
+    // Check level up
+    while (skill.xp >= skill.xpToNextLevel) {
+      skill.xp -= skill.xpToNextLevel;
+      skill.level++;
+      skill.xpToNextLevel = Math.floor(skill.xpToNextLevel * 1.5);
+      skillLevelUp = true;
+    }
+  }
+  
+  // Add coins
+  gameData.character.coins += Math.floor(quest.xpReward / 2);
+  
+  // Add character XP
+  gameData.character.xp += quest.xpReward;
+  const xpToLevel = gameData.character.level * 100;
+  while (gameData.character.xp >= xpToLevel) {
+    gameData.character.xp -= xpToLevel;
+    gameData.character.level++;
+    gameData.character.maxHp += 10;
+    gameData.character.hp = Math.min(gameData.character.hp + 10, gameData.character.maxHp);
+  }
+  
+  saveData(data);
+  return { success: true, skillLevelUp };
+}
+
+export function addHabit(userId: string, habit: Omit<GameHabit, 'id' | 'completed'>): GameHabit {
+  const data = loadData();
+  const gameData = data.gameData[userId] || createDefaultGameData();
+  
+  const newHabit: GameHabit = {
+    ...habit,
+    id: crypto.randomUUID(),
+    completed: false
+  };
+  
+  gameData.habits.push(newHabit);
+  data.gameData[userId] = gameData;
+  saveData(data);
+  return newHabit;
+}
+
+export function deleteHabit(userId: string, habitId: string): boolean {
+  const data = loadData();
+  const gameData = data.gameData[userId];
+  if (!gameData) return false;
+  
+  const index = gameData.habits.findIndex(h => h.id === habitId);
+  if (index === -1) return false;
+  
+  gameData.habits.splice(index, 1);
+  saveData(data);
+  return true;
+}
+
+export function completeHabit(userId: string, habitId: string): { success: boolean; gameOver?: boolean; skillLevelUp?: boolean } {
+  const data = loadData();
+  const gameData = data.gameData[userId];
+  if (!gameData) return { success: false };
+  
+  const habit = gameData.habits.find(h => h.id === habitId);
+  if (!habit || habit.completed) return { success: false };
+  
+  habit.completed = true;
+  habit.lastCompletedDate = new Date().toISOString();
+  
+  let skillLevelUp = false;
+  
+  if (habit.type === "good") {
+    // Good habit: add XP to skill
+    if (habit.skillId) {
+      const skill = gameData.skills.find(s => s.id === habit.skillId);
+      if (skill && habit.xpReward) {
+        skill.xp += habit.xpReward;
+        while (skill.xp >= skill.xpToNextLevel) {
+          skill.xp -= skill.xpToNextLevel;
+          skill.level++;
+          skill.xpToNextLevel = Math.floor(skill.xpToNextLevel * 1.5);
+          skillLevelUp = true;
+        }
+      }
+    }
+    // Add coins
+    gameData.character.coins += habit.xpReward || 5;
+  } else {
+    // Bad habit: reduce HP
+    const damage = habit.hpDamage || 10;
+    gameData.character.hp -= damage;
+    
+    if (gameData.character.hp <= 0) {
+      // Game over - reset everything
+      data.gameData[userId] = createDefaultGameData();
+      saveData(data);
+      return { success: true, gameOver: true };
+    }
+  }
+  
+  saveData(data);
+  return { success: true, skillLevelUp };
+}
+
+export function healCharacter(userId: string, amount: number): boolean {
+  const data = loadData();
+  const gameData = data.gameData[userId];
+  if (!gameData) return false;
+  
+  gameData.character.hp = Math.min(gameData.character.hp + amount, gameData.character.maxHp);
+  saveData(data);
+  return true;
+}
+
+export function resetGame(userId: string): void {
+  const data = loadData();
+  data.gameData[userId] = createDefaultGameData();
+  saveData(data);
 }

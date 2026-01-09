@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-type ViewType = "timer" | "stats" | "settings" | "todo" | "notes" | "chapters";
+type ViewType = "timer" | "stats" | "settings" | "todo" | "notes" | "chapters" | "motivation" | "game";
 
 export default function useBackground() {
   const [backgrounds, setBackgrounds] = useState<Record<ViewType, string>>({} as any);
@@ -77,7 +77,7 @@ export default function useBackground() {
     if (backgrounds[currentView]) {
       return backgrounds[currentView]; 
     }
-    return backgrounds.timer || ""; // Fallback
+    return ""; // Default to black (via App.tsx className)
   };
 
   return {

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, Tray, nativeImage, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage } from "electron";
 import * as path from "path";
 import * as fs from "fs";
 import {
@@ -25,12 +25,29 @@ import {
   getAllBackgrounds,
   getBackground,
   removeBackground,
-  login,
-  register,
   getAllChapters,
   addChapter,
   updateChapter,
-  deleteChapter
+  deleteChapter,
+  updateChapterOrder,
+  getAllMotivations,
+  addMotivation,
+  deleteMotivation,
+  updateMotivationOrder,
+  mergeSupabaseData,
+  // Game functions
+  getGameData,
+  addSkill,
+  updateSkill,
+  deleteSkill,
+  addQuest,
+  deleteQuest,
+  completeQuest,
+  addHabit,
+  deleteHabit,
+  completeHabit,
+  healCharacter,
+  resetGame
 } from "./storage";
 import supabaseService from "./supabaseService";
 
@@ -92,7 +109,10 @@ function createWindow() {
   console.log('[App] Initializing Supabase...');
   supabaseService.initialize(SUPABASE_URL, SUPABASE_ANON_KEY);
   
-  // Attempt initial sync
+  
+  // TEMP DISABLED: Automatic sync on startup
+  // Will sync after login instead
+  /*
   const userId = appData.users[0]?.id;
   if (userId) {
     setTimeout(async () => {
@@ -119,8 +139,9 @@ function createWindow() {
       } catch (err) {
         console.error('[Sync] ❌ Initial sync failed:', err);
       }
-    }, 2000); // Wait 2s after app load
+    }, 2000);
   }
+  */
 
   setupIpcHandlers();
 }
@@ -168,40 +189,71 @@ function setupIpcHandlers() {
     tray.setImage(icon.resize({ width: 16, height: 16 }));
   });
 
-  // Auth Handlers
-  ipcMain.handle("auth:login", (e, { username, password }) => {
-    const user = login(username, password);
-    if (user) {
-      activeUserId = user.id;
-      return { id: user.id, username: user.username };
-    }
-    return null;
-  });
-
-  ipcMain.handle("auth:register", (e, { username, password }) => {
+  // Auth Handlers (Username-only, queries profiles table)
+  ipcMain.handle("auth:login", async (e, { username }) => {
+    console.log('[Main] auth:login called with username:', username);
+    
     try {
-      const user = register(username, password);
-      activeUserId = user.id;
-      return { id: user.id, username: user.username };
-    } catch (err: any) {
-      console.error(err);
-      return { error: err.message };
+      // Query profiles table by username (case-insensitive)
+      const profile = await supabaseService.getProfileByUsername(username);
+      
+      if (profile) {
+        activeUserId = profile.id;
+        console.log('[Main] User logged in:', profile.username, '(ID:', profile.id, ')');
+        
+        // Pull user data from Supabase and merge into local storage
+        console.log('[Main] Pulling data from Supabase...');
+        const serverData = await supabaseService.pullFromServer(profile.id);
+        
+        if (serverData) {
+          console.log('[Main] Server data received:', {
+            subjects: serverData.subjects?.length || 0,
+            sessions: serverData.sessions?.length || 0,
+            todos: serverData.todos?.length || 0,
+            notes: serverData.notes?.length || 0,
+            chapters: serverData.chapters?.length || 0
+          });
+          
+          // Merge Supabase data into local storage
+          mergeSupabaseData(profile.id, serverData);
+          console.log('[Main] Data merged into local storage');
+        } else {
+          console.log('[Main] No data from server or offline');
+        }
+        
+        return {
+          id: profile.id,
+          username: profile.username || username
+        };
+      }
+      
+      console.error('[Main] User not found in profiles:', username);
+      return null;
+    } catch (err) {
+      console.error('[Main] Login error:', err);
+      return null;
     }
   });
 
-  ipcMain.handle("auth:verify", (e, userId: string) => {
-    const data = loadData();
-    const user = data.users.find(u => u.id === userId);
-    if (user) {
-      activeUserId = user.id;
-      return user;
+  ipcMain.handle("auth:logout", async () => {
+    const success = await supabaseService.signOut();
+    if (success) {
+      activeUserId = null;
+      console.log('[Main] User logged out');
+    }
+    return success;
+  });
+
+  ipcMain.handle("auth:getSession", async () => {
+    const session = await supabaseService.getSession();
+    if (session?.user) {
+      activeUserId = session.user.id;
+      return {
+        id: session.user.id,
+        username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User'
+      };
     }
     return null;
-  });
-  
-  ipcMain.handle("auth:logout", () => {
-    activeUserId = null;
-    return true;
   });
 
   // Timer Handlers (Scoped to User)
@@ -370,6 +422,83 @@ function setupIpcHandlers() {
     } catch { }
     return null; 
   });
+
+  // Chapter reordering
+  ipcMain.handle("chapters:reorder", (e, orderedIds: string[]) => {
+    if (!validate(e) || !activeUserId) return false;
+    return updateChapterOrder(activeUserId, orderedIds);
+  });
+
+  // Motivation Handlers
+  ipcMain.handle("motivation:getAll", (e) => validate(e) && activeUserId ? getAllMotivations(activeUserId) : []);
+  
+  ipcMain.handle("motivation:add", async (e, { name, data }: any) => {
+    if (!validate(e) || !activeUserId) return null;
+    try {
+      const motivationDir = path.join(app.getPath("userData"), "motivations");
+      if (!fs.existsSync(motivationDir)) fs.mkdirSync(motivationDir);
+      
+      const fileName = `motivation_${Date.now()}_${name}`;
+      const filePath = path.join(motivationDir, fileName);
+      fs.writeFileSync(filePath, Buffer.from(data));
+      
+      const relativePath = path.join("motivations", fileName);
+      return addMotivation(activeUserId, relativePath);
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  });
+
+  ipcMain.handle("motivation:delete", (e, id: string) => validate(e) && activeUserId ? deleteMotivation(activeUserId, id) : false);
+  
+  ipcMain.handle("motivation:reorder", (e, orderedIds: string[]) => {
+    if (!validate(e) || !activeUserId) return false;
+    return updateMotivationOrder(activeUserId, orderedIds);
+  });
+
+  ipcMain.handle("motivation:getImage", (e, relativePath: string) => {
+    if (!relativePath) return null;
+    try {
+      const fullPath = path.join(app.getPath("userData"), relativePath);
+      if (fs.existsSync(fullPath)) {
+        const data = fs.readFileSync(fullPath);
+        const b64 = data.toString("base64");
+        const ext = path.extname(fullPath).toLowerCase();
+        let mime = "image/jpeg";
+        if (ext === ".png") mime = "image/png";
+        if (ext === ".gif") mime = "image/gif";
+        if (ext === ".webp") mime = "image/webp";
+        return `data:${mime};base64,${b64}`;
+      }
+    } catch { /* ignore */ }
+    return null;
+  });
+
+  // ============================================
+  // Game / Quest Handlers
+  // ============================================
+  
+  ipcMain.handle("game:getData", (e) => validate(e) && activeUserId ? getGameData(activeUserId) : null);
+  
+  // Skills
+  ipcMain.handle("game:addSkill", (e, skill: any) => validate(e) && activeUserId ? addSkill(activeUserId, skill) : null);
+  ipcMain.handle("game:updateSkill", (e, { skillId, updates }: any) => validate(e) && activeUserId ? updateSkill(activeUserId, skillId, updates) : false);
+  ipcMain.handle("game:deleteSkill", (e, skillId: string) => validate(e) && activeUserId ? deleteSkill(activeUserId, skillId) : false);
+  
+  // Quests
+  ipcMain.handle("game:addQuest", (e, quest: any) => validate(e) && activeUserId ? addQuest(activeUserId, quest) : null);
+  ipcMain.handle("game:deleteQuest", (e, questId: string) => validate(e) && activeUserId ? deleteQuest(activeUserId, questId) : false);
+  ipcMain.handle("game:completeQuest", (e, questId: string) => validate(e) && activeUserId ? completeQuest(activeUserId, questId) : { success: false });
+  
+  // Habits
+  ipcMain.handle("game:addHabit", (e, habit: any) => validate(e) && activeUserId ? addHabit(activeUserId, habit) : null);
+  ipcMain.handle("game:deleteHabit", (e, habitId: string) => validate(e) && activeUserId ? deleteHabit(activeUserId, habitId) : false);
+  ipcMain.handle("game:completeHabit", (e, habitId: string) => validate(e) && activeUserId ? completeHabit(activeUserId, habitId) : { success: false });
+  
+  // Character
+  ipcMain.handle("game:heal", (e, amount: number) => validate(e) && activeUserId ? healCharacter(activeUserId, amount) : false);
+  ipcMain.handle("game:reset", (e) => { if (validate(e) && activeUserId) resetGame(activeUserId); return true; });
 }
 
 app.whenReady().then(() => {

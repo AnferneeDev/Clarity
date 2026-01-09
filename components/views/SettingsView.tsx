@@ -1,7 +1,7 @@
-import { Settings, Trash2, Wallpaper, Clock, BarChart3, ListTodo, StickyNote, User, LogOut, LayoutGrid } from "lucide-react";
+import { Settings, Trash2, Wallpaper, Clock, BarChart3, ListTodo, StickyNote, User, LogOut, LayoutGrid, Sparkles, Gamepad2 } from "lucide-react";
 import { Button } from "../ui/button";
 
-type ViewType = "timer" | "stats" | "settings" | "todo" | "notes" | "chapters";
+type ViewType = "timer" | "stats" | "settings" | "todo" | "notes" | "chapters" | "motivation" | "game";
 
 interface SettingsViewProps {
   backgrounds: Record<ViewType, string>;
@@ -17,6 +17,8 @@ export default function SettingsView({ backgrounds, onBackgroundChange, onRemove
     { key: "stats", label: "Stats", icon: BarChart3 },
     { key: "todo", label: "Tasks", icon: ListTodo },
     { key: "chapters", label: "Chapters", icon: LayoutGrid },
+    { key: "motivation", label: "Motivation", icon: Sparkles },
+    { key: "game", label: "Game", icon: Gamepad2 },
     { key: "notes", label: "Notes", icon: StickyNote },
     { key: "settings", label: "Settings", icon: Settings },
   ];

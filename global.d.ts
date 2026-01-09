@@ -10,10 +10,9 @@ declare global {
 
       // Auth
       auth: {
-        login: (u: string, p: string) => Promise<{ id: string; username: string } | null>;
-        register: (u: string, p: string) => Promise<{ id: string; username: string } | { error: string }>;
-        verify: (id: string) => Promise<any>;
+        login: (username: string) => Promise<{ id: string; username: string } | null>;
         logout: () => Promise<boolean>;
+        getSession: () => Promise<{ id: string; username: string } | null>;
       };
 
       // Timer & Subjects
@@ -57,6 +56,36 @@ declare global {
         delete: (id: string) => Promise<boolean>;
         uploadImage: (file: { name: string; data: Uint8Array }) => Promise<string | null>;
         getImage: (path: string) => Promise<string | null>;
+        reorder: (orderedIds: string[]) => Promise<boolean>;
+      };
+
+      // Motivation
+      motivation: {
+        getAll: () => Promise<any[]>;
+        add: (file: { name: string; data: Uint8Array }) => Promise<any>;
+        delete: (id: string) => Promise<boolean>;
+        reorder: (orderedIds: string[]) => Promise<boolean>;
+        getImage: (path: string) => Promise<string | null>;
+      };
+
+      // Game / Quest System
+      game: {
+        getData: () => Promise<any>;
+        // Skills
+        addSkill: (skill: any) => Promise<any>;
+        updateSkill: (skillId: string, updates: any) => Promise<boolean>;
+        deleteSkill: (skillId: string) => Promise<boolean>;
+        // Quests
+        addQuest: (quest: any) => Promise<any>;
+        deleteQuest: (questId: string) => Promise<boolean>;
+        completeQuest: (questId: string) => Promise<{ success: boolean; skillLevelUp?: boolean }>;
+        // Habits
+        addHabit: (habit: any) => Promise<any>;
+        deleteHabit: (habitId: string) => Promise<boolean>;
+        completeHabit: (habitId: string) => Promise<{ success: boolean; gameOver?: boolean; skillLevelUp?: boolean }>;
+        // Character
+        heal: (amount: number) => Promise<boolean>;
+        reset: () => Promise<boolean>;
       };
     };
   }

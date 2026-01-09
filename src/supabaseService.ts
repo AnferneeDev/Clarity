@@ -129,6 +129,10 @@ class SupabaseService {
         this.client.from('todos').delete().eq('user_id', userId),
         this.client.from('notes').delete().eq('user_id', userId),
         this.client.from('chapters').delete().eq('user_id', userId),
+        this.client.from('game_quests').delete().eq('user_id', userId),
+        this.client.from('game_habits').delete().eq('user_id', userId),
+        this.client.from('game_skills').delete().eq('user_id', userId),
+        this.client.from('game_characters').delete().eq('user_id', userId),
       ]);
 
       // Insert fresh data
@@ -195,6 +199,68 @@ class SupabaseService {
         promises.push(this.client.from('chapters').insert(chapters));
       }
 
+      // Game Data
+      const gameData = localData.gameData?.[userId];
+      if (gameData) {
+        // Character
+        promises.push(this.client.from('game_characters').insert({
+          user_id: userId,
+          hp: gameData.character.hp,
+          max_hp: gameData.character.maxHp,
+          xp: gameData.character.xp,
+          level: gameData.character.level,
+          coins: gameData.character.coins,
+          avatar: gameData.character.avatar,
+          last_reset_date: gameData.lastResetDate
+        }));
+
+        // Skills
+        if (gameData.skills?.length > 0) {
+          const skills = gameData.skills.map((s: any) => ({
+            id: s.id,
+            user_id: userId,
+            name: s.name,
+            icon: s.icon,
+            level: s.level,
+            xp: s.xp,
+            xp_to_next_level: s.xpToNextLevel
+          }));
+          promises.push(this.client.from('game_skills').insert(skills));
+        }
+
+        // Quests
+        if (gameData.quests?.length > 0) {
+          const quests = gameData.quests.map((q: any) => ({
+            id: q.id,
+            user_id: userId,
+            name: q.name,
+            icon: q.icon,
+            skill_id: q.skillId || null,
+            xp_reward: q.xpReward,
+            completed: q.completed,
+            last_completed_date: q.lastCompletedDate
+          }));
+          promises.push(this.client.from('game_quests').insert(quests));
+        }
+
+        // Habits
+        if (gameData.habits?.length > 0) {
+          const habits = gameData.habits.map((h: any) => ({
+            id: h.id,
+            user_id: userId,
+            name: h.name,
+            icon: h.icon,
+            type: h.type,
+            skill_id: h.skillId || null,
+            xp_reward: h.xpReward,
+            hp_damage: h.hpDamage,
+            completed: h.completed,
+            last_completed_date: h.lastCompletedDate
+          }));
+          promises.push(this.client.from('game_habits').insert(habits));
+        }
+      }
+
       await Promise.all(promises);
 
       // Update server timestamp
@@ -218,15 +284,35 @@ class SupabaseService {
     if (!this.client) return null;
 
     try {
-      console.log('[Sync] Pulling data from server...');
+      console.log('[Sync] Pulling data from server for userId:', userId);
 
-      const [subjects, sessions, todos, notes, chapters] = await Promise.all([
+      const [subjects, sessions, todos, notes, chapters, character, skills, quests, habits] = await Promise.all([
         this.client.from('subjects').select('*').eq('user_id', userId),
         this.client.from('sessions').select('*').eq('user_id', userId),
         this.client.from('todos').select('*').eq('user_id', userId),
         this.client.from('notes').select('*').eq('user_id', userId),
         this.client.from('chapters').select('*').eq('user_id', userId),
+        this.client.from('game_characters').select('*').eq('user_id', userId).maybeSingle(),
+        this.client.from('game_skills').select('*').eq('user_id', userId),
+        this.client.from('game_quests').select('*').eq('user_id', userId),
+        this.client.from('game_habits').select('*').eq('user_id', userId),
       ]);
+
+      // Log any errors from the queries
+      if (subjects.error) console.error('[Sync] subjects error:', subjects.error);
+      if (sessions.error) console.error('[Sync] sessions error:', sessions.error);
+      if (todos.error) console.error('[Sync] todos error:', todos.error);
+      if (notes.error) console.error('[Sync] notes error:', notes.error);
+      if (chapters.error) console.error('[Sync] chapters error:', chapters.error);
+      
+      // Log raw data counts
+      console.log('[Sync] Raw data counts:', {
+        subjects: subjects.data?.length || 0,
+        sessions: sessions.data?.length || 0,
+        todos: todos.data?.length || 0,
+        notes: notes.data?.length || 0,
+        chapters: chapters.data?.length || 0
+      });
 
       const serverData = {
         subjects: subjects.data?.map((s: any) => ({
@@ -269,8 +355,53 @@ class SupabaseService {
           coverImage: c.cover_image,
           clear: c.clear,
           createdAt: c.created_at
-        })) || []
+        })) || [],
+        gameData: null as any
       };
+
+      // Construct Game Data
+      if (character.data) {
+        serverData.gameData = {
+          character: {
+            hp: character.data.hp,
+            maxHp: character.data.max_hp,
+            xp: character.data.xp,
+            level: character.data.level,
+            coins: character.data.coins,
+            avatar: character.data.avatar
+          },
+          skills: skills.data?.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            icon: s.icon,
+            level: s.level,
+            xp: s.xp,
+            xpToNextLevel: s.xp_to_next_level
+          })) || [],
+          quests: quests.data?.map((q: any) => ({
+            id: q.id,
+            name: q.name,
+            icon: q.icon,
+            skillId: q.skill_id,
+            xpReward: q.xp_reward,
+            completed: q.completed,
+            lastCompletedDate: q.last_completed_date
+          })) || [],
+          habits: habits.data?.map((h: any) => ({
+            id: h.id,
+            name: h.name,
+            icon: h.icon,
+            type: h.type,
+            skillId: h.skill_id,
+            xpReward: h.xp_reward,
+            hpDamage: h.hp_damage,
+            completed: h.completed,
+            lastCompletedDate: h.last_completed_date
+          })) || [],
+          lastResetDate: character.data.last_reset_date || new Date().toISOString().split('T')[0]
+        };
+      }
+
 
       console.log('[Sync] ✅ Pull complete');
       return serverData;
@@ -306,6 +437,136 @@ class SupabaseService {
     }
 
     return { success: false, direction: 'server-to-local', error: 'Pull failed' };
+  }
+
+  /**
+   * Sign in with email and password
+   */
+  async signIn(email: string, password: string): Promise<{ user: any; error: any }> {
+    if (!this.client) {
+      return { user: null, error: { message: 'Supabase not initialized' } };
+    }
+
+    try {
+      const { data, error } = await this.client.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        console.error('[Auth] Login failed:', error.message);
+        return { user: null, error };
+      }
+
+      console.log('[Auth] ✅ Login successful:', data.user?.email);
+      return { user: data.user, error: null };
+    } catch (err) {
+      console.error('[Auth] Exception:', err);
+      return { user: null, error: { message: String(err) } };
+    }
+  }
+
+  /**
+   * Sign out
+   */
+  async signOut(): Promise<boolean> {
+    if (!this.client) return false;
+
+    try {
+      const { error } = await this.client.auth.signOut();
+      if (error) {
+        console.error('[Auth] Logout failed:', error);
+        return false;
+      }
+      console.log('[Auth] ✅ Logout successful');
+      return true;
+    } catch (err) {
+      console.error('[Auth] Exception:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Get current session
+   */
+  async getSession(): Promise<any> {
+    if (!this.client) return null;
+
+    try {
+      const { data, error } = await this.client.auth.getSession();
+      if (error) {
+        console.error('[Auth] Get session failed:', error);
+        return null;
+      }
+      return data.session;
+    } catch (err) {
+      console.error('[Auth] Exception:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Get current user
+   */
+  async getUser(): Promise<any> {
+    if (!this.client) return null;
+
+    try {
+      const { data, error } = await this.client.auth.getUser();
+      if (error) {
+        console.error('[Auth] Get user failed:', error);
+        return null;
+      }
+      return data.user;
+    } catch (err) {
+      console.error('[Auth] Exception:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Get a profile by username (case-insensitive)
+   * Used for username-only login
+   */
+  async getProfileByUsername(username: string): Promise<{ id: string; username: string; full_name?: string } | null> {
+    console.log('[Auth] getProfileByUsername called with:', username);
+    
+    if (!this.client) {
+      console.log('[Auth] ERROR: Supabase client is null!');
+      return null;
+    }
+    
+    console.log('[Auth] Supabase client exists, querying profiles table...');
+
+    try {
+      const query = this.client
+        .from('profiles')
+        .select('id, username, full_name')
+        .ilike('username', username)
+        .limit(1);
+      
+      console.log('[Auth] Executing query...');
+      const { data, error } = await query;
+      
+      console.log('[Auth] Query result - data:', JSON.stringify(data));
+      console.log('[Auth] Query result - error:', error ? JSON.stringify(error) : 'none');
+
+      if (error) {
+        console.error('[Auth] Error querying profiles:', error);
+        return null;
+      }
+
+      if (data && data.length > 0) {
+        console.log('[Auth] Found profile:', data[0]);
+        return data[0];
+      }
+
+      console.log('[Auth] No profile found for username:', username);
+      return null;
+    } catch (err) {
+      console.error('[Auth] Exception querying profiles:', err);
+      return null;
+    }
   }
 }
 

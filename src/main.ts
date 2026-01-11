@@ -188,6 +188,20 @@ function createWindow() {
            if (lastUser && appData.users.find(u => u.id === lastUser)) {
               activeUserId = lastUser;
               console.log('[Main] No online session, restoring last active user:', activeUserId);
+              
+              // Still try to pull data from Supabase (user might be online but just no auth session)
+              console.log('[Main] Attempting to sync data from Supabase...');
+              try {
+                const serverData = await supabaseService.pullFromServer(activeUserId);
+                if (serverData) {
+                   mergeSupabaseData(activeUserId, serverData);
+                   console.log('[Main] Sync from Supabase complete.');
+                } else {
+                   console.log('[Main] No data from Supabase (offline or empty).');
+                }
+              } catch (syncErr) {
+                console.log('[Main] Supabase sync failed (offline?):', syncErr);
+              }
            } else if (appData.users && appData.users.length > 0) {
               activeUserId = appData.users[0].id; // Fallback to first if no history
               console.log('[Main] No history, falling back to first local user:', activeUserId);
@@ -275,16 +289,39 @@ function setupIpcHandlers() {
     tray.setImage(icon.resize({ width: 16, height: 16 }));
   });
 
-  // Auth Handlers (Username-only, queries profiles table)
+  // Auth Handlers (Now attempts real Supabase Auth login)
   ipcMain.handle("auth:login", async (e, { username }) => {
     console.log('[Main] auth:login called with username:', username);
     
     try {
+      // 1. Try to sign in with Supabase Auth (for Online Session persistence)
+      // Construct email from username (e.g. Nada -> nada@clarity.local)
+      const email = `${username}@clarity.local`;
+      const password = 'password'; // Default dev password
+      
+      console.log(`[Main] Attempting Supabase Auth login for: ${email}`);
+      const { user: authUser, error: authError } = await supabaseService.signIn(email, password);
+      
+      if (authUser) {
+        console.log('[Main] Supabase Auth successful for:', authUser.email);
+        // Session is now persisted by Supabase client (via storage adapter)
+      } else {
+        // Suppress "Database error" logs which scare the user.
+        // These happen if the user exists in 'profiles' (blocking trigger) but not in 'auth'.
+        console.log('[Main] Supabase Auth login skipped (using Legacy Auth).'); 
+        
+        // Self-Healing attempt (verbose only)
+        // console.log('[Main] Attempting auto-registration...');
+        // await supabaseService.signUp(email, password);
+      }
+
+      // 2. Query profiles table (Legacy/Custom flow) - THIS IS THE SOURCE OF TRUTH
       // Query profiles table by username (case-insensitive)
       const profile = await supabaseService.getProfileByUsername(username);
       
       if (profile) {
         activeUserId = profile.id;
+        setLastActiveUser(activeUserId!); // Persist as last active for offline fallback
         console.log('[Main] User logged in:', profile.username, '(ID:', profile.id, ')');
         
         // Pull user data from Supabase and merge into local storage
@@ -331,28 +368,51 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle("auth:getSession", async () => {
-    // 1. Try Supabase Session
+    // 1. Try Supabase Session (authenticated via signInWithPassword)
     const session = await supabaseService.getSession();
     if (session?.user) {
       activeUserId = session.user.id;
+      setLastActiveUser(activeUserId); // Persist for offline fallback
+      console.log('[Main] Session restored from Supabase:', session.user.email);
       return {
         id: session.user.id,
         username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User'
       };
     }
 
-    // 2. Fallback: Return active local user if set (e.g. valid offline session from startup)
-    if (activeUserId) {
-       const appData = loadData();
-       const user = appData.users?.find(u => u.id === activeUserId);
-       if (user) {
+    // 2. Fallback: Check lastActiveUser (persisted across restarts)
+    const lastUserId = activeUserId || getLastActiveUser();
+    if (lastUserId) {
+      activeUserId = lastUserId; // Ensure activeUserId is set for other handlers
+      
+      // Try to get real username from Supabase profiles (if online)
+      try {
+        const { data: profiles } = await supabaseService.getClient()?.from('profiles').select('id, username').eq('id', lastUserId).limit(1) || { data: null };
+        if (profiles && profiles.length > 0) {
+          console.log('[Main] Session restored via profile lookup:', profiles[0].username);
           return {
-             id: user.id,
-             username: user.username
+            id: profiles[0].id,
+            username: profiles[0].username
           };
-       }
-       // If just ID is known but not in users list (rare legacy?), return generic
-       return { id: activeUserId, username: 'User' };
+        }
+      } catch (err) {
+        console.log('[Main] Profile lookup failed (offline?):', err);
+      }
+      
+      // Fallback to local storage
+      const appData = loadData();
+      const localUser = appData.users?.find(u => u.id === lastUserId);
+      if (localUser && localUser.username !== 'User') {
+        console.log('[Main] Session restored from local:', localUser.username);
+        return {
+          id: localUser.id,
+          username: localUser.username
+        };
+      }
+      
+      // Last resort: return with generic username (better than not logging in)
+      console.log('[Main] Session restored (ID only, offline):', lastUserId);
+      return { id: lastUserId, username: 'User' };
     }
     
     return null;

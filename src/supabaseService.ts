@@ -16,6 +16,50 @@ export interface SyncMetadata {
   serverLastUpdatedAt: string;
 }
 
+import * as fs from 'fs';
+import * as path from 'path';
+import { app } from 'electron'; 
+
+// Simple File Storage Adapter for Supabase Auth
+const storageAdapter = {
+  getItem: (key: string): string | null => {
+    try {
+      const sessionPath = path.join(app.getPath("userData"), "clarity-session.json");
+      if (!fs.existsSync(sessionPath)) return null;
+      const data = JSON.parse(fs.readFileSync(sessionPath, "utf-8"));
+      return data[key] || null;
+    } catch (err) {
+      console.error("[SupabaseAdapter] Failed to get item:", err);
+      return null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      const sessionPath = path.join(app.getPath("userData"), "clarity-session.json");
+      let data: any = {};
+      if (fs.existsSync(sessionPath)) {
+        data = JSON.parse(fs.readFileSync(sessionPath, "utf-8"));
+      }
+      data[key] = value;
+      fs.writeFileSync(sessionPath, JSON.stringify(data, null, 2), "utf-8");
+    } catch (err) {
+      console.error("[SupabaseAdapter] Failed to set item:", err);
+    }
+  },
+  removeItem: (key: string): void => {
+     try {
+       const sessionPath = path.join(app.getPath("userData"), "clarity-session.json");
+       if (fs.existsSync(sessionPath)) {
+          const data = JSON.parse(fs.readFileSync(sessionPath, "utf-8"));
+          delete data[key];
+           fs.writeFileSync(sessionPath, JSON.stringify(data, null, 2), "utf-8");
+       }
+     } catch (err) {
+       console.error("[SupabaseAdapter] Failed to remove item:", err);
+     }
+  }
+};
+
 interface SyncResult {
   success: boolean;
   direction: 'local-to-server' | 'server-to-local' | 'none';
@@ -37,11 +81,20 @@ class SupabaseService {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
+        storage: storageAdapter, // Use our custom file-based storage
+        detectSessionInUrl: false
       }
     });
     
     this.isInitialized = true;
-    console.log('[Supabase] Client initialized');
+    console.log('[Supabase] Client initialized with file storage persistence');
+  }
+
+  /**
+   * Get the Supabase client for direct queries
+   */
+  getClient(): SupabaseClient | null {
+    return this.client;
   }
 
   /**
@@ -561,6 +614,33 @@ class SupabaseService {
   }
 
   /**
+   * Sign up with email and password
+   */
+  async signUp(email: string, password: string): Promise<{ user: any; error: any }> {
+    if (!this.client) {
+      return { user: null, error: { message: 'Supabase not initialized' } };
+    }
+
+    try {
+      const { data, error } = await this.client.auth.signUp({
+        email,
+        password
+      });
+
+      if (error) {
+        console.error('[Auth] SignUp failed:', error.message);
+        return { user: null, error };
+      }
+
+      console.log('[Auth] ✅ SignUp successful:', data.user?.email);
+      return { user: data.user, error: null };
+    } catch (err) {
+      console.error('[Auth] Exception:', err);
+      return { user: null, error: { message: String(err) } };
+    }
+  }
+
+  /**
    * Sign out
    */
   async signOut(): Promise<boolean> {
@@ -588,6 +668,12 @@ class SupabaseService {
 
     try {
       const { data, error } = await this.client.auth.getSession();
+      console.log('[Supabase] getSession RAW result:', { 
+        hasSession: !!data.session, 
+        user: data.session?.user?.id,
+        error: error 
+      });
+      
       if (error) {
         console.error('[Auth] Get session failed:', error);
         return null;
@@ -607,6 +693,12 @@ class SupabaseService {
 
     try {
       const { data, error } = await this.client.auth.getUser();
+      console.log('[Supabase] getUser RAW result:', { 
+        hasUser: !!data.user, 
+        userId: data.user?.id,
+        error: error 
+      });
+
       if (error) {
         console.error('[Auth] Get user failed:', error);
         return null;

@@ -38,6 +38,8 @@ import {
   saveData,
   setLastActiveUser,
   getLastActiveUser,
+  setLastActiveUsername,
+  getLastActiveUsername,
   type AppData,
   type User,
   // Game functions
@@ -182,31 +184,58 @@ function createWindow() {
               console.log('[Main] Initial sync complete.');
            }
         } else {
-           // 2. Fallback to last active local user (Offline / Legacy)
-           // Robust fallback: Check last active user first, then first user in list
-           const lastUser = getLastActiveUser();
-           if (lastUser && appData.users.find(u => u.id === lastUser)) {
-              activeUserId = lastUser;
-              console.log('[Main] No online session, restoring last active user:', activeUserId);
+           // 2. No Supabase auth session - try auto-login with stored username
+           const storedUsername = getLastActiveUsername();
+           if (storedUsername) {
+              console.log('[Main] No Supabase session, attempting auto-login with stored username:', storedUsername);
               
-              // Still try to pull data from Supabase (user might be online but just no auth session)
-              console.log('[Main] Attempting to sync data from Supabase...');
+              // Perform actual login to establish Supabase connection
+              const email = `${storedUsername.toLowerCase()}@clarity.local`;
+              const password = 'password';
+              
               try {
+                // Try Supabase Auth login
+                await supabaseService.signIn(email, password);
+                console.log('[Main] Supabase Auth auto-login attempted');
+              } catch (authErr) {
+                console.log('[Main] Supabase Auth auto-login failed (expected if user not in auth):', authErr);
+              }
+              
+              // Query profile to get user ID and sync data
+              const profile = await supabaseService.getProfileByUsername(storedUsername);
+              if (profile) {
+                activeUserId = profile.id;
+                setLastActiveUser(activeUserId);
+                console.log('[Main] Auto-login successful:', profile.username, '(ID:', profile.id, ')');
+                
+                // Pull data from Supabase
+                console.log('[Main] Syncing data from Supabase...');
                 const serverData = await supabaseService.pullFromServer(activeUserId);
                 if (serverData) {
                    mergeSupabaseData(activeUserId, serverData);
-                   console.log('[Main] Sync from Supabase complete.');
-                } else {
-                   console.log('[Main] No data from Supabase (offline or empty).');
+                   console.log('[Main] Auto-login sync complete.');
                 }
-              } catch (syncErr) {
-                console.log('[Main] Supabase sync failed (offline?):', syncErr);
+              } else {
+                console.log('[Main] Stored username not found in Supabase profiles:', storedUsername);
+                // Fallback to local
+                const lastUser = getLastActiveUser();
+                if (lastUser && appData.users.find(u => u.id === lastUser)) {
+                   activeUserId = lastUser;
+                   console.log('[Main] Falling back to local user:', activeUserId);
+                }
               }
-           } else if (appData.users && appData.users.length > 0) {
-              activeUserId = appData.users[0].id; // Fallback to first if no history
-              console.log('[Main] No history, falling back to first local user:', activeUserId);
            } else {
-              console.log('[Main] No users found. Waiting for login.');
+              // No stored username - check for local users
+              const lastUser = getLastActiveUser();
+              if (lastUser && appData.users.find(u => u.id === lastUser)) {
+                 activeUserId = lastUser;
+                 console.log('[Main] No stored username, using last active user:', activeUserId);
+              } else if (appData.users && appData.users.length > 0) {
+                 activeUserId = appData.users[0].id;
+                 console.log('[Main] No history, falling back to first local user:', activeUserId);
+              } else {
+                 console.log('[Main] No users found. Waiting for login.');
+              }
            }
         }
      }).catch(err => {
@@ -322,6 +351,7 @@ function setupIpcHandlers() {
       if (profile) {
         activeUserId = profile.id;
         setLastActiveUser(activeUserId!); // Persist as last active for offline fallback
+        setLastActiveUsername(profile.username || username); // Persist username for auto-login on restart
         console.log('[Main] User logged in:', profile.username, '(ID:', profile.id, ')');
         
         // Pull user data from Supabase and merge into local storage

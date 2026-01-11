@@ -180,6 +180,17 @@ export function getLastActiveUser(): string | null {
   return data.lastActiveUserId || null;
 }
 
+export function setLastActiveUsername(username: string): void {
+  const data = loadData();
+  (data as any).lastActiveUsername = username;
+  saveData(data);
+}
+
+export function getLastActiveUsername(): string | null {
+  const data = loadData();
+  return (data as any).lastActiveUsername || null;
+}
+
 // Duplicate dataCache declaration removed
 
 function getDataFilePath(): string {

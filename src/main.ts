@@ -404,6 +404,15 @@ function setupIpcHandlers() {
       activeUserId = session.user.id;
       setLastActiveUser(activeUserId); // Persist for offline fallback
       console.log('[Main] Session restored from Supabase:', session.user.email);
+      
+      // Pull fresh data from Supabase to keep synced
+      console.log('[Main] Syncing data from Supabase...');
+      const serverData = await supabaseService.pullFromServer(activeUserId);
+      if (serverData) {
+        mergeSupabaseData(activeUserId, serverData);
+        console.log('[Main] Data synced successfully');
+      }
+      
       return {
         id: session.user.id,
         username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || 'User'
@@ -412,14 +421,25 @@ function setupIpcHandlers() {
 
     // 2. Fallback: Check lastActiveUser (persisted across restarts)
     const lastUserId = activeUserId || getLastActiveUser();
+    const lastUsername = getLastActiveUsername();
+    
     if (lastUserId) {
       activeUserId = lastUserId; // Ensure activeUserId is set for other handlers
       
-      // Try to get real username from Supabase profiles (if online)
+      // Try to get real username from Supabase profiles AND sync data (if online)
       try {
         const { data: profiles } = await supabaseService.getClient()?.from('profiles').select('id, username').eq('id', lastUserId).limit(1) || { data: null };
         if (profiles && profiles.length > 0) {
           console.log('[Main] Session restored via profile lookup:', profiles[0].username);
+          
+          // Pull fresh data from Supabase to keep synced
+          console.log('[Main] Syncing data from Supabase...');
+          const serverData = await supabaseService.pullFromServer(lastUserId);
+          if (serverData) {
+            mergeSupabaseData(lastUserId, serverData);
+            console.log('[Main] Data synced successfully');
+          }
+          
           return {
             id: profiles[0].id,
             username: profiles[0].username
@@ -429,20 +449,20 @@ function setupIpcHandlers() {
         console.log('[Main] Profile lookup failed (offline?):', err);
       }
       
-      // Fallback to local storage
+      // Fallback to local storage (offline mode)
       const appData = loadData();
       const localUser = appData.users?.find(u => u.id === lastUserId);
       if (localUser && localUser.username !== 'User') {
-        console.log('[Main] Session restored from local:', localUser.username);
+        console.log('[Main] Session restored from local (offline):', localUser.username);
         return {
           id: localUser.id,
           username: localUser.username
         };
       }
       
-      // Last resort: return with generic username (better than not logging in)
+      // Last resort: use stored username or generic
       console.log('[Main] Session restored (ID only, offline):', lastUserId);
-      return { id: lastUserId, username: 'User' };
+      return { id: lastUserId, username: lastUsername || 'User' };
     }
     
     return null;

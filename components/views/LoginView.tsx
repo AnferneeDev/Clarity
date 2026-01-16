@@ -58,7 +58,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               <Input
                 id="username"
                 type="text"
-                placeholder="Nada or Anfernee"
+                placeholder="Type your username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="bg-black/20 border-gray-600 text-white placeholder:text-gray-500"

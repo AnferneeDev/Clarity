@@ -754,6 +754,104 @@ class SupabaseService {
       return null;
     }
   }
+
+  // ============================================
+  // Supabase Storage Methods
+  // ============================================
+
+  /**
+   * Upload an image to Supabase Storage
+   * @param bucket - 'motivations', 'chapters', or 'backgrounds'
+   * @param fileName - Unique file name
+   * @param fileData - File data as Buffer or Uint8Array
+   * @param contentType - MIME type (e.g., 'image/jpeg')
+   * @returns Public URL of the uploaded file, or null on failure
+   */
+  async uploadImage(
+    bucket: 'motivations' | 'chapters' | 'backgrounds',
+    fileName: string,
+    fileData: Buffer | Uint8Array,
+    contentType: string = 'image/jpeg'
+  ): Promise<string | null> {
+    if (!this.client) {
+      console.error('[Storage] Client not initialized');
+      return null;
+    }
+
+    try {
+      console.log(`[Storage] Uploading to ${bucket}/${fileName}...`);
+      
+      const { data, error } = await this.client.storage
+        .from(bucket)
+        .upload(fileName, fileData, {
+          contentType,
+          upsert: true // Overwrite if exists
+        });
+
+      if (error) {
+        console.error('[Storage] Upload failed:', error.message);
+        return null;
+      }
+
+      // Get public URL
+      const { data: urlData } = this.client.storage
+        .from(bucket)
+        .getPublicUrl(fileName);
+
+      console.log('[Storage] Upload successful:', urlData.publicUrl);
+      return urlData.publicUrl;
+    } catch (err) {
+      console.error('[Storage] Upload exception:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Delete an image from Supabase Storage
+   * @param bucket - 'motivations', 'chapters', or 'backgrounds'
+   * @param fileName - File name to delete
+   */
+  async deleteImage(
+    bucket: 'motivations' | 'chapters' | 'backgrounds',
+    fileName: string
+  ): Promise<boolean> {
+    if (!this.client) return false;
+
+    try {
+      const { error } = await this.client.storage
+        .from(bucket)
+        .remove([fileName]);
+
+      if (error) {
+        console.error('[Storage] Delete failed:', error.message);
+        return false;
+      }
+
+      console.log(`[Storage] Deleted ${bucket}/${fileName}`);
+      return true;
+    } catch (err) {
+      console.error('[Storage] Delete exception:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Get public URL for a file in storage
+   * @param bucket - 'motivations', 'chapters', or 'backgrounds'
+   * @param fileName - File name
+   */
+  getPublicUrl(
+    bucket: 'motivations' | 'chapters' | 'backgrounds',
+    fileName: string
+  ): string | null {
+    if (!this.client) return null;
+
+    const { data } = this.client.storage
+      .from(bucket)
+      .getPublicUrl(fileName);
+
+    return data.publicUrl;
+  }
 }
 
 export const supabaseService = new SupabaseService();

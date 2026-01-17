@@ -60,8 +60,12 @@ import {
 import supabaseService from "./supabaseService";
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (require("electron-squirrel-startup")) {
-  app.quit();
+try {
+  if (require("electron-squirrel-startup")) {
+    app.quit();
+  }
+} catch {
+  // Module not available in development or non-squirrel builds
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -548,20 +552,44 @@ function setupIpcHandlers() {
   });
 
   // Backgrounds (Global/Shared in storage, but we need to implement ViewBackgroundData for renderer)
-  ipcMain.handle("setViewBackground", (e, view: string, { name, data }: any) => {
+  ipcMain.handle("setViewBackground", async (e, view: string, { name, data }: any) => {
     if (!validate(e)) return;
-    // Save file to disk
     try {
-      const bgDir = path.join(app.getPath("userData"), "backgrounds");
-      if (!fs.existsSync(bgDir)) fs.mkdirSync(bgDir);
+      // Generate unique filename
+      const ext = path.extname(name).toLowerCase() || '.jpg';
+      const fileName = `${activeUserId || 'default'}/${view}_${Date.now()}${ext}`;
       
-      const fileName = `${view}_${Date.now()}_${name}`; // unique
-      const filePath = path.join(bgDir, fileName);
-      fs.writeFileSync(filePath, Buffer.from(data));
+      // Determine content type
+      let contentType = 'image/jpeg';
+      if (ext === '.png') contentType = 'image/png';
+      else if (ext === '.gif') contentType = 'image/gif';
+      else if (ext === '.webp') contentType = 'image/webp';
       
-      const relative = path.join("backgrounds", fileName);
-      setBackground(view, relative);
-      return relative;
+      // Upload to Supabase Storage
+      const publicUrl = await supabaseService.uploadImage(
+        'backgrounds',
+        fileName,
+        Buffer.from(data),
+        contentType
+      );
+      
+      if (publicUrl) {
+        setBackground(view, publicUrl);
+        return publicUrl;
+      } else {
+        // Fallback to local storage
+        console.log('[Backgrounds] Supabase upload failed, falling back to local storage');
+        const bgDir = path.join(app.getPath("userData"), "backgrounds");
+        if (!fs.existsSync(bgDir)) fs.mkdirSync(bgDir);
+        
+        const localFileName = `${view}_${Date.now()}_${name}`;
+        const filePath = path.join(bgDir, localFileName);
+        fs.writeFileSync(filePath, Buffer.from(data));
+        
+        const relative = path.join("backgrounds", localFileName);
+        setBackground(view, relative);
+        return relative;
+      }
     } catch (err) {
       console.error(err);
       return null;
@@ -569,18 +597,24 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle("getViewBackground", (e, view: string) => {
-    return getBackground(view); // returns relative path
+    return getBackground(view); // returns path or URL
   });
 
   ipcMain.handle("getViewBackgroundData", async (e, view: string) => {
-    const relPath = getBackground(view);
-    if (!relPath) return null;
+    const imagePath = getBackground(view);
+    if (!imagePath) return null;
+    
+    // If it's a URL (Supabase Storage), return it directly
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    
+    // Otherwise, load from local file
     try {
-      const fullPath = path.join(app.getPath("userData"), relPath);
+      const fullPath = path.join(app.getPath("userData"), imagePath);
       if (fs.existsSync(fullPath)) {
         const data = fs.readFileSync(fullPath);
         const b64 = data.toString("base64");
-        // Determine mime? simple assumption
         const ext = path.extname(fullPath).toLowerCase();
         let mime = "image/jpeg";
         if (ext === ".png") mime = "image/png";
@@ -630,31 +664,61 @@ function setupIpcHandlers() {
     return false;
   });
 
-  ipcMain.handle("chapters:uploadImage", (e, { name, data }: any) => {
+  ipcMain.handle("chapters:uploadImage", async (e, { name, data }: any) => {
     if (!validate(e) || !activeUserId) return null;
     try {
-      const chaptersDir = path.join(app.getPath("userData"), "chapters");
-      if (!fs.existsSync(chaptersDir)) fs.mkdirSync(chaptersDir);
+      // Generate unique filename
+      const ext = path.extname(name).toLowerCase() || '.jpg';
+      const fileName = `${activeUserId}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}${ext}`;
       
-      const fileName = `chapter_${Date.now()}_${name}`;
-      const filePath = path.join(chaptersDir, fileName);
-      fs.writeFileSync(filePath, Buffer.from(data));
+      // Determine content type
+      let contentType = 'image/jpeg';
+      if (ext === '.png') contentType = 'image/png';
+      else if (ext === '.gif') contentType = 'image/gif';
+      else if (ext === '.webp') contentType = 'image/webp';
       
-      return path.join("chapters", fileName);
+      // Upload to Supabase Storage
+      const publicUrl = await supabaseService.uploadImage(
+        'chapters',
+        fileName,
+        Buffer.from(data),
+        contentType
+      );
+      
+      if (publicUrl) {
+        return publicUrl;
+      } else {
+        // Fallback to local storage if upload fails
+        console.log('[Chapters] Supabase upload failed, falling back to local storage');
+        const chaptersDir = path.join(app.getPath("userData"), "chapters");
+        if (!fs.existsSync(chaptersDir)) fs.mkdirSync(chaptersDir);
+        
+        const localFileName = `chapter_${Date.now()}_${name}`;
+        const filePath = path.join(chaptersDir, localFileName);
+        fs.writeFileSync(filePath, Buffer.from(data));
+        
+        return path.join("chapters", localFileName);
+      }
     } catch (err) {
       console.error(err);
       return null;
     }
   });
 
-  ipcMain.handle("chapters:getImage", (e, relativePath: string) => {
-    if (!relativePath) return null;
+  ipcMain.handle("chapters:getImage", (e, imagePath: string) => {
+    if (!imagePath) return null;
+    
+    // If it's a URL (Supabase Storage), return it directly
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    
+    // Otherwise, load from local file
     try {
-      const fullPath = path.join(app.getPath("userData"), relativePath);
+      const fullPath = path.join(app.getPath("userData"), imagePath);
       if (fs.existsSync(fullPath)) {
         const data = fs.readFileSync(fullPath);
         const b64 = data.toString("base64");
-        // Simple mime check
         const ext = path.extname(fullPath).toLowerCase();
         let mime = "image/jpeg";
         if (ext === ".png") mime = "image/png";
@@ -686,17 +750,44 @@ function setupIpcHandlers() {
   ipcMain.handle("motivation:add", async (e, { name, data }: any) => {
     if (!validate(e) || !activeUserId) return null;
     try {
-      const motivationDir = path.join(app.getPath("userData"), "motivations");
-      if (!fs.existsSync(motivationDir)) fs.mkdirSync(motivationDir);
+      // Generate unique filename
+      const ext = path.extname(name).toLowerCase() || '.jpg';
+      const fileName = `${activeUserId}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}${ext}`;
       
-      const fileName = `motivation_${Date.now()}_${name}`;
-      const filePath = path.join(motivationDir, fileName);
-      fs.writeFileSync(filePath, Buffer.from(data));
+      // Determine content type
+      let contentType = 'image/jpeg';
+      if (ext === '.png') contentType = 'image/png';
+      else if (ext === '.gif') contentType = 'image/gif';
+      else if (ext === '.webp') contentType = 'image/webp';
       
-      const relativePath = path.join("motivations", fileName);
-      const res = addMotivation(activeUserId, relativePath);
-      if (res) triggerSync();
-      return res;
+      // Upload to Supabase Storage
+      const publicUrl = await supabaseService.uploadImage(
+        'motivations',
+        fileName,
+        Buffer.from(data),
+        contentType
+      );
+      
+      if (publicUrl) {
+        // Store the public URL in database
+        const res = addMotivation(activeUserId, publicUrl);
+        if (res) triggerSync();
+        return res;
+      } else {
+        // Fallback to local storage if upload fails
+        console.log('[Motivation] Supabase upload failed, falling back to local storage');
+        const motivationDir = path.join(app.getPath("userData"), "motivations");
+        if (!fs.existsSync(motivationDir)) fs.mkdirSync(motivationDir);
+        
+        const localFileName = `motivation_${Date.now()}_${name}`;
+        const filePath = path.join(motivationDir, localFileName);
+        fs.writeFileSync(filePath, Buffer.from(data));
+        
+        const relativePath = path.join("motivations", localFileName);
+        const res = addMotivation(activeUserId, relativePath);
+        if (res) triggerSync();
+        return res;
+      }
     } catch (err) {
       console.error(err);
       return null;
@@ -719,10 +810,17 @@ function setupIpcHandlers() {
     return res;
   });
 
-  ipcMain.handle("motivation:getImage", (e, relativePath: string) => {
-    if (!relativePath) return null;
+  ipcMain.handle("motivation:getImage", (e, imagePath: string) => {
+    if (!imagePath) return null;
+    
+    // If it's a URL (Supabase Storage), return it directly
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    
+    // Otherwise, load from local file
     try {
-      const fullPath = path.join(app.getPath("userData"), relativePath);
+      const fullPath = path.join(app.getPath("userData"), imagePath);
       if (fs.existsSync(fullPath)) {
         const data = fs.readFileSync(fullPath);
         const b64 = data.toString("base64");

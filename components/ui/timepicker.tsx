@@ -34,7 +34,6 @@ export function TimePicker({ date, setDate }: TimePickerProps) {
     setHour(d.hour);
     setMinute(d.minute);
     setAmpm(d.ampm);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
   // clamp helpers

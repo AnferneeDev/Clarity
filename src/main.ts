@@ -104,8 +104,8 @@ function triggerSync() {
 }
 
 // Supabase Configuration
-const SUPABASE_URL = 'https://qkqwyqdhwhscmlkmsiyg.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrcXd5cWRod2hzY21sa21zaXlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5MDA5NTQsImV4cCI6MjA4MzQ3Njk1NH0.9BvJZRa4bAr1amQ75dWEk6Q0dNjosPkfTAYDP5cXiMg';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
 
 const ASSETS_PATH = app.isPackaged
   ? path.join(process.resourcesPath, "assets")

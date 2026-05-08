@@ -1,3 +1,4 @@
+import { Notification } from 'electron';
 import { localCache } from '../services/cache';
 import { supabase } from '../services/supabase';
 
@@ -52,6 +53,13 @@ class AlarmChecker {
 
   private async fireAlarm(alarm: { task_id: number; user_id: string; text: string; due_date: string }) {
     console.log(`[Alarms] 🔔 Firing alarm: "${alarm.text}" (due: ${alarm.due_date})`);
+
+    // Fire native OS notification (works on Windows/macOS/Linux)
+    try {
+      new Notification({ title: 'Reminder', body: alarm.text, silent: false });
+    } catch (e) {
+      console.error('[Alarms] Notification failed:', e);
+    }
 
     localCache.markAlarmNotified(alarm.task_id, alarm.user_id);
 

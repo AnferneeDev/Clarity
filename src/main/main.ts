@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Notification } from 'electron';
 import * as path from 'path';
 import { createMainWindow } from './lib/window';
 import { createTray, setTrayState } from './lib/tray';
@@ -73,9 +73,19 @@ async function initApp() {
     console.log('[Main] No session found');
   }
 
-  // Register debug log handler (renderer → terminal)
+  // Debug logging from renderer
   ipcMain.handle('debug:log', async (_e, msg: string) => {
     console.log('[RENDERER]', msg);
+  });
+
+  // Notification from renderer (fires native OS notification)
+  ipcMain.handle('notify:fire', async (_e, title: string, body: string) => {
+    try {
+      new Notification({ title, body, silent: false });
+      console.log('[Notify] ✅ Fired:', title);
+    } catch (e) {
+      console.error('[Notify] ❌ Failed:', e);
+    }
   });
 
   // Minimize to tray

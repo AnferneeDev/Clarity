@@ -33,22 +33,10 @@ function playSound() {
 }
 
 function sendNotification(title: string, body: string) {
-  try {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body, silent: false });
-      window.electronAPI.app.log(`[NOTIFICATION] ✓ fired: "${title}" — "${body}"`);
-    } else {
-      window.electronAPI.app.log(`[NOTIFICATION] ✗ skipped (permission: ${Notification.permission})`);
-    }
-  } catch (e) {
-    window.electronAPI.app.log(`[NOTIFICATION] ✗ error: ${e}`);
-  }
-}
-
-function requestPermission() {
-  if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
-  }
+  // Fire via main process for reliable OS-native notifications (Windows/macOS/Linux)
+  window.electronAPI.app.notify(title, body)
+    .catch(e => window.electronAPI.app.log(`[NOTIFICATION] ✗ failed: ${e}`));
+  window.electronAPI.app.log(`[NOTIFICATION] ✓ fired: "${title}"`);
 }
 
 // ============================================
@@ -326,7 +314,6 @@ export function usePomodoroTimer() {
   }, [isRunning, isPaused, timeLeft, currentPhase, currentCycle, focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks]);
 
   const handleStart = useCallback(() => {
-    requestPermission();
     playSound();
     window.electronAPI.app.log(`[TIMER-LOG] handleStart() — isRunning: ${isRunning} isPaused: ${isPaused} subj: ${selectedSubject} phase: ${currentPhase}`);
 

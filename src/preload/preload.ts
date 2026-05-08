@@ -52,6 +52,7 @@ const APP_CHANNELS = [
   'app:close',
   'tray:setState',
   'debug:log',
+  'notify:fire',
 ] as const;
 
 const ALL_CHANNELS = [
@@ -195,5 +196,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     close: () => ipcRenderer.invoke('app:close'),
     setTrayState: (state: 'active' | 'idle') => ipcRenderer.invoke('tray:setState', state),
     log: (msg: string) => ipcRenderer.invoke('debug:log', msg),
+    notify: (title: string, body: string) => ipcRenderer.invoke('notify:fire', title, body),
   },
 });

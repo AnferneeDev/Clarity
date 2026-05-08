@@ -176,7 +176,13 @@ class LocalCache {
     subject_name: string; date: string; minutes: number;
   }>) {
     const localSessions = this.data.sessions.filter(s => s.user_id === userId);
-    const localKeys = new Set(localSessions.map(s => `${s.subject_name}::${s.date}`));
+
+    // Build a map of local sessions by key for fast lookup/update
+    const localMap = new Map<string, number>();
+    for (const s of localSessions) {
+      const key = `${s.subject_name}::${s.date}`;
+      localMap.set(key, s.minutes);
+    }
 
     console.log(`[Cache] mergeFromSupabase — local: ${localSessions.length} sessions, server: ${serverSessions.length} sessions`);
     if (localSessions.length > 0) {
@@ -187,11 +193,22 @@ class LocalCache {
       console.log('[Cache]   local totals:', Array.from(localTotals.entries()).map(([n, m]) => `${n}=${m.toFixed(1)}m`).join(', '));
     }
 
+    const serverTotals = new Map<string, number>();
+    for (const s of serverSessions) {
+      serverTotals.set(s.subject_name, (serverTotals.get(s.subject_name) || 0) + s.minutes);
+    }
+    console.log('[Cache]   server totals:', Array.from(serverTotals.entries()).map(([n, m]) => `${n}=${m.toFixed(1)}m`).join(', '));
+
     let addedCount = 0;
+    let updatedCount = 0;
     let skippedCount = 0;
+
     for (const s of serverSessions) {
       const key = `${s.subject_name}::${s.date}`;
-      if (!localKeys.has(key)) {
+      const localMinutes = localMap.get(key);
+
+      if (localMinutes === undefined) {
+        // New session — add it
         this.data.sessions.push({
           user_id: userId,
           subject_name: s.subject_name,
@@ -199,16 +216,26 @@ class LocalCache {
           minutes: s.minutes,
         });
         addedCount++;
-        console.log(`[Cache]   ➕ added: ${s.subject_name} ${s.date} ${s.minutes}m`);
+        console.log(`[Cache]   ➕ added: ${s.subject_name} ${s.date} ${s.minutes.toFixed(1)}m`);
+      } else if (Math.abs(localMinutes - s.minutes) > 0.01) {
+        // Server has different value — update local (server wins for sync)
+        const idx = this.data.sessions.findIndex(
+          ls => ls.user_id === userId && ls.subject_name === s.subject_name && ls.date === s.date
+        );
+        if (idx !== -1) {
+          this.data.sessions[idx].minutes = s.minutes;
+          updatedCount++;
+          console.log(`[Cache]   🔄 updated: ${s.subject_name} ${s.date} ${localMinutes.toFixed(1)}m → ${s.minutes.toFixed(1)}m`);
+        }
       } else {
         skippedCount++;
       }
     }
 
-    console.log(`[Cache] mergeFromSupabase — done: ${addedCount} added, ${skippedCount} skipped`);
+    console.log(`[Cache] mergeFromSupabase — done: ${addedCount} added, ${updatedCount} updated, ${skippedCount} skipped`);
     this.data.lastSyncTimestamps[userId] = new Date().toISOString();
     this.flush();
-    return addedCount;
+    return addedCount + updatedCount;
   }
 
   getLastSyncTimestamp(userId: string): string | null {

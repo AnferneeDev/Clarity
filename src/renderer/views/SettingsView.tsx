@@ -47,17 +47,17 @@ export default function SettingsView() {
         <div className="glass-card p-4 rounded-xl border border-gray-700/50 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
-              <User className="w-5 h-5 text-blue-400" />
+              <User className="w-5 h-5 text-blue-300" />
             </div>
             <div>
               <p className="text-white text-sm font-medium">{user?.username || 'Unknown'}</p>
-              <p className="text-gray-400 text-xs">{user?.email}</p>
+              <p className="text-gray-300 text-xs">{user?.email}</p>
             </div>
           </div>
           <Button
             onClick={logout}
             variant="outline"
-            className="border-red-500/30 text-red-400 hover:bg-red-500/10 text-sm"
+            className="border-red-500/30 text-red-300 hover:bg-red-500/10 text-sm"
           >
             <LogOut className="w-4 h-4 mr-1" />
             Sign Out
@@ -82,12 +82,12 @@ export default function SettingsView() {
                     style={currentBg ? { backgroundImage: `url(${currentBg})` } : { backgroundColor: '#1a1a2e' }}
                   />
                   <div className="flex items-center gap-2">
-                    <Icon className="w-4 h-4 text-gray-400" />
+                    <Icon className="w-4 h-4 text-gray-300" />
                     <span className="text-white text-sm">{label}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-purple-400 hover:text-purple-300 cursor-pointer transition">
+                  <label className="text-xs text-purple-300 hover:text-purple-200 cursor-pointer transition">
                     Change
                     <input
                       type="file"
@@ -99,7 +99,7 @@ export default function SettingsView() {
                   {currentBg && (
                     <button
                       onClick={() => handleRemoveBackground(key)}
-                      className="text-xs text-red-400 hover:text-red-300 transition"
+                      className="text-xs text-red-300 hover:text-red-200 transition"
                     >
                       Remove
                     </button>

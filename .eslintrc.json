@@ -23,6 +23,6 @@
         "project": "./tsconfig.json"
       }
     },
-    "import/ignore": ["node_modules"]
+    "import/ignore": ["node_modules", "\\.ico$", "\\.png$", "\\.jpg$", "\\.svg$", "\\.wav$"]
   }
 }

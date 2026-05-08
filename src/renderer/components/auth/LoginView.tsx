@@ -4,6 +4,7 @@ import { Mail, Lock, LogIn, Github, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+// eslint-disable-next-line import/no-unresolved
 import logo from '@/assets/icon.ico';
 
 export default function LoginView() {

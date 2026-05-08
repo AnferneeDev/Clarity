@@ -254,6 +254,8 @@ class SupabaseService {
 
     if (since) query = query.gte('date', since);
 
+    query = query.limit(10_000);  // safety net: each user's sessions fit easily
+
     const { data } = await query;
     return (data ?? []) as Array<{ subject_name: string; date: string; minutes: number }>;
   }

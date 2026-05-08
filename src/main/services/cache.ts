@@ -171,22 +171,34 @@ class LocalCache {
       .map(s => ({ subject: s.subject_name, date: s.date, total_minutes: s.minutes }));
   }
 
-  // ---- Hydration from Supabase ----
-  hydrateFromSupabase(userId: string, serverSessions: Array<{
+  // ---- Hydration from Supabase (additive merge, never delete local) ----
+  mergeFromSupabase(userId: string, serverSessions: Array<{
     subject_name: string; date: string; minutes: number;
   }>) {
-    // Replace local sessions for this user with server data
-    this.data.sessions = this.data.sessions.filter(s => s.user_id !== userId);
+    // Build a set of keys that already exist locally
+    const localKeys = new Set(
+      this.data.sessions
+        .filter(s => s.user_id === userId)
+        .map(s => `${s.subject_name}::${s.date}`)
+    );
+
+    let addedCount = 0;
     for (const s of serverSessions) {
-      this.data.sessions.push({
-        user_id: userId,
-        subject_name: s.subject_name,
-        date: s.date,
-        minutes: s.minutes,
-      });
+      const key = `${s.subject_name}::${s.date}`;
+      if (!localKeys.has(key)) {
+        this.data.sessions.push({
+          user_id: userId,
+          subject_name: s.subject_name,
+          date: s.date,
+          minutes: s.minutes,
+        });
+        addedCount++;
+      }
     }
+
     this.data.lastSyncTimestamps[userId] = new Date().toISOString();
     this.flush();
+    return addedCount;
   }
 
   getLastSyncTimestamp(userId: string): string | null {

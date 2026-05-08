@@ -1,5 +1,6 @@
 import { Clock, BarChart3, ListTodo, StickyNote, Settings } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+// eslint-disable-next-line import/no-unresolved
 import logo from '@/assets/icon.ico';
 
 interface SidebarNavProps {

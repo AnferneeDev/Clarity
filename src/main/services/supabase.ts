@@ -357,45 +357,6 @@ class SupabaseService {
   }
 
   // ============================================
-  // Backgrounds
-  // ============================================
-  async getBackground(userId: string, viewName: string): Promise<string | null> {
-    const { data } = await this.getClient()
-      .from('backgrounds')
-      .select('image_url')
-      .eq('user_id', userId)
-      .eq('view_name', viewName)
-      .maybeSingle();
-    return data?.image_url ?? null;
-  }
-
-  async getAllBackgrounds(userId: string): Promise<Record<string, string>> {
-    const { data } = await this.getClient()
-      .from('backgrounds')
-      .select('view_name, image_url')
-      .eq('user_id', userId);
-    const result: Record<string, string> = {};
-    for (const row of data ?? []) {
-      result[row.view_name] = row.image_url;
-    }
-    return result;
-  }
-
-  async setBackground(userId: string, viewName: string, imageUrl: string) {
-    await this.getClient()
-      .from('backgrounds')
-      .upsert({ user_id: userId, view_name: viewName, image_url: imageUrl });
-  }
-
-  async removeBackground(userId: string, viewName: string) {
-    await this.getClient()
-      .from('backgrounds')
-      .delete()
-      .eq('user_id', userId)
-      .eq('view_name', viewName);
-  }
-
-  // ============================================
   // User Preferences
   // ============================================
   async getPreferences(userId: string) {
@@ -411,33 +372,6 @@ class SupabaseService {
     await this.getClient()
       .from('user_preferences')
       .upsert({ user_id: userId, ...updates, updated_at: new Date().toISOString() });
-  }
-
-  // ============================================
-  // Storage (images)
-  // ============================================
-  async uploadImage(
-    bucket: string,
-    fileName: string,
-    fileData: Buffer | Uint8Array,
-    contentType = 'image/jpeg',
-  ): Promise<string | null> {
-    const { error } = await this.getClient()
-      .storage
-      .from(bucket)
-      .upload(fileName, fileData, { contentType, upsert: true });
-
-    if (error) {
-      console.error('[Storage] Upload failed:', error.message);
-      return null;
-    }
-
-    const { data: urlData } = this.getClient()
-      .storage
-      .from(bucket)
-      .getPublicUrl(fileName);
-
-    return urlData.publicUrl;
   }
 }
 

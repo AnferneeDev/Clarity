@@ -17,6 +17,36 @@ const LS_AUTO_START = 'clarity_v3:auto_start_breaks';
 const LS_SELECTED = 'clarity_v3:selected_subject';
 
 // ============================================
+// Sound + Notification (HTML5 API, Electron-native)
+// ============================================
+let audioCache: HTMLAudioElement | null = null;
+
+function playSound() {
+  try {
+    if (!audioCache) {
+      audioCache = new Audio('/Click.wav');
+      audioCache.volume = 0.4;
+    }
+    audioCache.currentTime = 0;
+    audioCache.play().catch(() => { /* autoplay blocked */ });
+  } catch { /* sound is optional */ }
+}
+
+function sendNotification(title: string, body: string) {
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, silent: false });
+    }
+  } catch { /* notifications optional */ }
+}
+
+function requestPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+// ============================================
 // Auto-save intervals
 // ============================================
 const AUTO_SAVE_INTERVAL_MS = 10_000;    // check every 10s (altver pattern)
@@ -55,7 +85,6 @@ export function usePomodoroTimer() {
   const [currentCycle, setCurrentCycle] = useState(1);
 
   // ---- Refs for tracking ----
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prefSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionStartRef = useRef<number>(0);
@@ -101,14 +130,13 @@ export function usePomodoroTimer() {
     const activeMs = (now - sessionStartRef.current) - totalPausedMsRef.current;
     const activeSeconds = Math.floor(activeMs / 1000);
 
-    // Save 1-minute chunks each tick (altver's proven pattern)
     if (activeSeconds >= lastSavedSecondsRef.current + DEFAULT_CHUNK_SECONDS) {
       try {
         await window.electronAPI.timer.saveSession(subject, todayRef.current, 1);
         lastSavedSecondsRef.current += DEFAULT_CHUNK_SECONDS;
-        console.log(`[Timer] Chunk saved: 1m for "${subject}" (total: ${lastSavedSecondsRef.current / 60}m)`);
+        window.electronAPI.app.log(`[TIMER-LOG] 💾 Saved 1m (active: ${activeSeconds}s, total saved: ${lastSavedSecondsRef.current / 60}m)`);
       } catch (err) {
-        console.error('[Timer] Chunk save failed:', err);
+        window.electronAPI.app.log(`[TIMER-LOG] ❌ Save failed: ${err}`);
       }
     }
   }, []);
@@ -240,81 +268,121 @@ export function usePomodoroTimer() {
     localStorage.setItem(LS_SELECTED, name);
   }, []);
 
-  // ---- Timer logic ----
-  const clearInterval_ = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }, []);
+  // ---- Timer countdown (useEffect-driven, no imperative setInterval) ----
+  useEffect(() => {
+    if (!isRunning || isPaused) return;
 
-  const tick = useCallback(() => {
-    setTimeLeft(prev => {
-      if (prev <= 1) {
-        clearInterval_();
-        setIsRunning(false);
-        setIsPaused(false);
-        setPauseSeconds(0);
+    window.electronAPI.app.log(`[TIMER-LOG] ⏱ countdown tick — timeLeft: ${timeLeft}`);
 
-        // Save completed full session
-        if (currentPhase === 'focus') {
-          const totalSeconds = focusMinutes * 60;
-          const unsaved = totalSeconds - lastSavedSecondsRef.current;
-          if (unsaved > 1 && trackingSubjectRef.current) {
-            window.electronAPI.timer.saveSession(trackingSubjectRef.current, todayRef.current, unsaved / 60)
-              .catch(err => console.error('[Timer] Final save failed:', err));
+    const id = setTimeout(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          // Timer completed
+          window.electronAPI.app.log(`[TIMER-LOG] ⏰ ${currentPhase} finished, switching phase`);
+
+          if (currentPhase === 'focus') {
+            const totalSeconds = focusMinutes * 60;
+            const unsaved = totalSeconds - lastSavedSecondsRef.current;
+            if (unsaved > 1 && trackingSubjectRef.current) {
+              window.electronAPI.timer.saveSession(trackingSubjectRef.current, todayRef.current, unsaved / 60)
+                .catch(err => console.error('[Timer] Final save failed:', err));
+            }
+            lastSavedSecondsRef.current = 0;
+
+            sendNotification('Pomodoro complete', `Focus session finished. Time for a break!`);
+            playSound();
+          } else {
+            sendNotification('Break over', currentPhase === 'long' ? 'Long break finished. Time to focus!' : 'Short break finished. Time to focus!');
+            playSound();
           }
-          lastSavedSecondsRef.current = 0;
-        }
 
-        // Switch phase
-        const next = currentPhase === 'focus'
-          ? (currentCycle % 4 === 0 ? 'long' as TimerPhase : 'short' as TimerPhase)
-          : 'focus' as TimerPhase;
-        setCurrentPhase(next);
-        setTimeLeft(next === 'focus' ? focusMinutes * 60 : next === 'short' ? shortBreakMinutes * 60 : longBreakMinutes * 60);
-        if (next === 'focus') setCurrentCycle(c => c + 1);
+          const nextPhase: TimerPhase = currentPhase === 'focus'
+            ? (currentCycle % 4 === 0 ? 'long' : 'short')
+            : 'focus';
 
-        if (autoStartBreaks) {
-          setTimeout(() => setIsRunning(true), 500);
+          setIsRunning(false);
+          setIsPaused(false);
+          setPauseSeconds(0);
+          setCurrentPhase(nextPhase);
+          if (nextPhase === 'focus') setCurrentCycle(c => c + 1);
+          setTimeLeft(nextPhase === 'focus' ? focusMinutes * 60 : nextPhase === 'short' ? shortBreakMinutes * 60 : longBreakMinutes * 60);
+
+          if (autoStartBreaks) {
+            setTimeout(() => setIsRunning(true), 500);
+          }
+
+          return 0;
         }
-        return 0;
-      }
-      return prev - 1;
-    });
-  }, [currentPhase, focusMinutes, shortBreakMinutes, longBreakMinutes, currentCycle, autoStartBreaks, clearInterval_]);
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearTimeout(id);
+  }, [isRunning, isPaused, timeLeft, currentPhase, currentCycle, focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks]);
 
   const handleStart = useCallback(() => {
-    if (!selectedSubject) return;
-    trackingSubjectRef.current = selectedSubject;
-    sessionStartRef.current = Date.now();
-    lastSavedSecondsRef.current = 0;
-    totalPausedMsRef.current = 0;
+    requestPermission();
+    playSound();
+    window.electronAPI.app.log(`[TIMER-LOG] handleStart() — isRunning: ${isRunning} isPaused: ${isPaused} subj: ${selectedSubject} phase: ${currentPhase}`);
+
+    if (!selectedSubject) {
+      window.electronAPI.app.log('[TIMER-LOG]   ❌ no subject');
+      return;
+    }
+
+    if (isRunning && !isPaused) {
+      window.electronAPI.app.log('[TIMER-LOG]   ⚠ already running');
+      return;
+    }
+
+    const isResuming = pauseStartRef.current > 0;
+    window.electronAPI.app.log(`[TIMER-LOG]   isResuming: ${isResuming}`);
+
+    if (!isResuming) {
+      trackingSubjectRef.current = selectedSubject;
+      sessionStartRef.current = Date.now();
+      lastSavedSecondsRef.current = 0;
+      totalPausedMsRef.current = 0;
+    } else {
+      totalPausedMsRef.current += Date.now() - pauseStartRef.current;
+    }
+
     pauseStartRef.current = 0;
     setPauseSeconds(0);
     setIsRunning(true);
     setIsPaused(false);
-    clearInterval_();
-    intervalRef.current = setInterval(tick, 1000);
-  }, [selectedSubject, tick, clearInterval_]);
+    window.electronAPI.app.log('[TIMER-LOG]   ✅ started');
+  }, [selectedSubject, isRunning, isPaused, currentPhase]);
 
   const handlePause = useCallback(() => {
-    clearInterval_();
-    if (isRunning && !isPaused) {
-      pauseStartRef.current = Date.now();
+    playSound();
+    window.electronAPI.app.log(`[TIMER-LOG] handlePause() — isRunning: ${isRunning} isPaused: ${isPaused}`);
+
+    if (!isRunning) return;
+
+    if (isPaused) {
+      // Resume
+      window.electronAPI.app.log('[TIMER-LOG]   ▶ resuming');
+      totalPausedMsRef.current += Date.now() - pauseStartRef.current;
+      pauseStartRef.current = 0;
+      setPauseSeconds(0);
+      setIsPaused(false);
+      return;
     }
+
+    // Pause
+    window.electronAPI.app.log('[TIMER-LOG]   ⏸ pausing');
+    pauseStartRef.current = Date.now();
     setIsPaused(true);
 
-    // Save accumulated seconds immediately on pause
     if (currentPhase === 'focus') {
       flushUnsavedSeconds();
     }
-  }, [isRunning, isPaused, currentPhase, flushUnsavedSeconds, clearInterval_]);
+  }, [isRunning, isPaused, currentPhase, flushUnsavedSeconds]);
 
   const handleReset = useCallback(async () => {
-    clearInterval_();
-    setIsRunning(false);
-    setIsPaused(false);
+    playSound();
+    window.electronAPI.app.log('[TIMER-LOG] 🔄 reset');
 
     // Save any remaining unsaved seconds
     if (currentPhase === 'focus') {
@@ -325,12 +393,16 @@ export function usePomodoroTimer() {
     totalPausedMsRef.current = 0;
     pauseStartRef.current = 0;
     setPauseSeconds(0);
+    setIsRunning(false);
+    setIsPaused(false);
     setTimeLeft(focusMinutes * 60);
     setCurrentPhase('focus');
-  }, [currentPhase, focusMinutes, flushUnsavedSeconds, clearInterval_]);
+  }, [currentPhase, focusMinutes, flushUnsavedSeconds]);
 
   const switchPhase = useCallback((phase: TimerPhase) => {
-    // Save partial time if switching away from focus
+    playSound();
+    window.electronAPI.app.log(`[TIMER-LOG] ↪ switchPhase → ${phase}`);
+
     if (currentPhase === 'focus' && (isRunning || isPaused)) {
       const now = Date.now();
       const activeMs = (now - sessionStartRef.current) - totalPausedMsRef.current;
@@ -342,7 +414,6 @@ export function usePomodoroTimer() {
       }
     }
 
-    clearInterval_();
     setIsRunning(false);
     setIsPaused(false);
     lastSavedSecondsRef.current = 0;
@@ -355,7 +426,7 @@ export function usePomodoroTimer() {
       phase === 'short' ? shortBreakMinutes * 60 :
       longBreakMinutes * 60
     );
-  }, [currentPhase, focusMinutes, shortBreakMinutes, longBreakMinutes, isRunning, isPaused, clearInterval_]);
+  }, [currentPhase, focusMinutes, shortBreakMinutes, longBreakMinutes, isRunning, isPaused]);
 
   // ---- Update timeLeft when settings change (idle only) ----
   useEffect(() => {
@@ -371,7 +442,6 @@ export function usePomodoroTimer() {
   // ---- Cleanup on unmount ----
   useEffect(() => {
     return () => {
-      clearInterval_();
       if (autoSaveRef.current) clearInterval(autoSaveRef.current);
       if (prefSyncRef.current) clearTimeout(prefSyncRef.current);
 
@@ -387,7 +457,7 @@ export function usePomodoroTimer() {
         }
       }
     };
-  }, [isRunning, currentPhase, clearInterval_]);
+  }, [isRunning, currentPhase]);
 
   // ---- Tray icon state ----
   useEffect(() => {

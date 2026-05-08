@@ -71,6 +71,7 @@ declare global {
         removeBackground: (viewName: string) => Promise<void>;
         getPreferences: () => Promise<unknown>;
         updatePreferences: (updates: Record<string, unknown>) => Promise<void>;
+        onBackgroundChanged: (callback: () => void) => () => void;
       };
       app: {
         minimize: () => Promise<void>;

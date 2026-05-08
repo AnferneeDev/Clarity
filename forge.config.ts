@@ -2,7 +2,6 @@ import type { ForgeConfig } from "@electron-forge/shared-types";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerZIP } from "@electron-forge/maker-zip";
 import { MakerDeb } from "@electron-forge/maker-deb";
-import { MakerRpm } from "@electron-forge/maker-rpm";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
@@ -10,37 +9,34 @@ import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-nati
 
 const config: ForgeConfig = {
   packagerConfig: {
-    appBundleId: "com.clarity-v2.app", // macOS
+    appBundleId: "com.clarity-v2.app",
     win32metadata: {
       CompanyName: "Clarity",
-      FileDescription: "Clarity v2",
-      ProductName: "Clarity v2",
+      FileDescription: "Clarity",
+      ProductName: "Clarity",
     },
     asar: {
-      unpack: "**/node_modules/better-sqlite3/**/*", // Unpack better-sqlite3 from ASAR
+      unpack: "**/node_modules/better-sqlite3/**/*",
     },
-    icon: "./assets/icon", // Base app icon (Forge adds .ico/.icns/.png as needed)
+    icon: "assets/icon",
     extraResource: [
-      "./assets/icon.ico",
-      "./assets/Click.wav",
-      "./assets", // copy the whole folder so all assets are available
+      "assets/icon.ico",
+      "assets/Click.wav",
+      "assets",
     ],
-    executableName: "Clarity v2",
+    executableName: "Clarity",
   },
   rebuildConfig: {},
   makers: [
+    // Windows: only builds on Windows OS (requires .NET Framework + Squirrel)
+    // To build: run `npm run make` on Windows, or use GitHub Actions with windows-latest
     new MakerSquirrel({
-      setupIcon: "./assets/icon.ico", // Windows installer icon
+      setupIcon: "assets/icon.ico",
     }),
     new MakerZIP({}, ["darwin"]),
-    new MakerRpm({
-      options: {
-        icon: "./assets/icon.png", // Linux RPM icon
-      },
-    }),
     new MakerDeb({
       options: {
-        icon: "./assets/icon.png", // Linux DEB icon
+        icon: "assets/icon.png",
       },
     }),
   ],

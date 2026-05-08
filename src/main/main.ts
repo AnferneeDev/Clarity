@@ -62,6 +62,11 @@ async function initApp() {
     console.log('[Main] No session found');
   }
 
+  // Register debug log handler (renderer → terminal)
+  ipcMain.handle('debug:log', async (_e, msg: string) => {
+    console.log('[RENDERER]', msg);
+  });
+
   // Minimize to tray
   mainWindow.on('close', (event) => {
     if (!isQuitting) {

@@ -51,6 +51,7 @@ const APP_CHANNELS = [
   'app:maximize',
   'app:close',
   'tray:setState',
+  'debug:log',
 ] as const;
 
 const ALL_CHANNELS = [
@@ -174,6 +175,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     removeBackground: (viewName: string) =>
       ipcRenderer.invoke('settings:removeBackground', viewName),
 
+    onBackgroundChanged: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on('settings:background-changed', handler);
+      return () => ipcRenderer.removeListener('settings:background-changed', handler);
+    },
+
     getPreferences: () =>
       ipcRenderer.invoke('settings:getPreferences'),
 
@@ -187,5 +194,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     maximize: () => ipcRenderer.invoke('app:maximize'),
     close: () => ipcRenderer.invoke('app:close'),
     setTrayState: (state: 'active' | 'idle') => ipcRenderer.invoke('tray:setState', state),
+    log: (msg: string) => ipcRenderer.invoke('debug:log', msg),
   },
 });

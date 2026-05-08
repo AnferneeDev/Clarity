@@ -15,29 +15,23 @@ const VIEW_SECTIONS: { key: ViewName; label: string; icon: React.ComponentType<a
 
 export default function SettingsView() {
   const { user, logout } = useAuth();
-  const { allBackgrounds } = useBackground('timer');
-
-  // Fetch all backgrounds on mount
-  const bg = useBackground('_placeholder_');
+  const { allBackgrounds, fetchAllBackgrounds } = useBackground('timer');
 
   const handleBackgroundChange = async (view: ViewName, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const buffer = await file.arrayBuffer();
-    const result = await window.electronAPI.settings.setBackground(view, {
+    await window.electronAPI.settings.setBackground(view, {
       name: file.name,
       data: new Uint8Array(buffer),
     });
-
-    if (result) {
-      await bg.fetchAllBackgrounds();
-    }
+    await fetchAllBackgrounds();
   };
 
   const handleRemoveBackground = async (view: ViewName) => {
     await window.electronAPI.settings.removeBackground(view);
-    await bg.fetchAllBackgrounds();
+    await fetchAllBackgrounds();
   };
 
   return (

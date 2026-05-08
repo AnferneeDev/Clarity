@@ -1,5 +1,6 @@
-import { ipcMain, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow, app } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { supabase } from '../services/supabase';
 
 function makeValidate(getMainWindow: () => BrowserWindow | null) {
@@ -22,19 +23,60 @@ export function registerSettingsHandlers(getMainWindow: () => BrowserWindow | nu
     return getUserId() || null;
   }
 
-  // ---- Backgrounds ----
+  // ---- Backgrounds (local file storage) ----
+  function getBgDir() {
+    const dir = path.join(app.getPath('userData'), 'backgrounds');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    return dir;
+  }
+
+  function broadcastBackgroundChange() {
+    const win = getMainWindow();
+    if (win) win.webContents.send('settings:background-changed');
+  }
+
+  function getBgPath(userId: string, viewName: string): string {
+    return path.join(getBgDir(), `${userId}_${viewName}`);
+  }
+
   ipcMain.handle('settings:getBackground', async (e, viewName: string) => {
     if (!validate(e)) throw new Error('Invalid sender');
     const userId = optionalUser();
     if (!userId) return null;
-    return supabase.getBackground(userId, viewName);
+
+    const bgPath = getBgPath(userId, viewName);
+    if (fs.existsSync(bgPath)) {
+      const data = fs.readFileSync(bgPath);
+      const ext = path.extname(bgPath).toLowerCase();
+      let mime = 'image/jpeg';
+      if (ext === '.png') mime = 'image/png';
+      if (ext === '.gif') mime = 'image/gif';
+      if (ext === '.webp') mime = 'image/webp';
+      return `data:${mime};base64,${data.toString('base64')}`;
+    }
+    return null;
   });
 
   ipcMain.handle('settings:getAllBackgrounds', async (e) => {
     if (!validate(e)) throw new Error('Invalid sender');
     const userId = optionalUser();
     if (!userId) return {};
-    return supabase.getAllBackgrounds(userId);
+
+    const result: Record<string, string> = {};
+    const dir = getBgDir();
+    const files = fs.readdirSync(dir).filter(f => f.startsWith(`${userId}_`));
+    for (const file of files) {
+      const viewName = file.replace(`${userId}_`, '');
+      const bgPath = path.join(dir, file);
+      const data = fs.readFileSync(bgPath);
+      const ext = path.extname(bgPath).toLowerCase();
+      let mime = 'image/jpeg';
+      if (ext === '.png') mime = 'image/png';
+      if (ext === '.gif') mime = 'image/gif';
+      if (ext === '.webp') mime = 'image/webp';
+      result[viewName] = `data:${mime};base64,${data.toString('base64')}`;
+    }
+    return result;
   });
 
   ipcMain.handle('settings:setBackground', async (e, viewName: string, file: { name: string; data: number[] }) => {
@@ -42,32 +84,18 @@ export function registerSettingsHandlers(getMainWindow: () => BrowserWindow | nu
     if (!file?.name || !file?.data) throw new Error('Invalid file');
 
     const userId = requireUser();
-    const ext = path.extname(file.name).toLowerCase() || '.jpg';
-    const fileName = `${userId}/${viewName}_${Date.now()}${ext}`;
-
-    let contentType = 'image/jpeg';
-    if (ext === '.png') contentType = 'image/png';
-    else if (ext === '.gif') contentType = 'image/gif';
-    else if (ext === '.webp') contentType = 'image/webp';
-
-    const imageUrl = await supabase.uploadImage(
-      'backgrounds',
-      fileName,
-      Buffer.from(file.data),
-      contentType,
-    );
-
-    if (imageUrl) {
-      await supabase.setBackground(userId, viewName, imageUrl);
-      return imageUrl;
-    }
-
-    return null;
+    const bgPath = getBgPath(userId, viewName);
+    fs.writeFileSync(bgPath, Buffer.from(file.data));
+    broadcastBackgroundChange();
+    return `file://${bgPath}`;
   });
 
   ipcMain.handle('settings:removeBackground', async (e, viewName: string) => {
     if (!validate(e)) throw new Error('Invalid sender');
-    await supabase.removeBackground(requireUser(), viewName);
+    const userId = requireUser();
+    const bgPath = getBgPath(userId, viewName);
+    if (fs.existsSync(bgPath)) fs.unlinkSync(bgPath);
+    broadcastBackgroundChange();
   });
 
   // ---- Preferences ----

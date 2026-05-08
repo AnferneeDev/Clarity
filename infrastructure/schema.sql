@@ -139,7 +139,7 @@ CREATE POLICY "notes_delete" ON app.notes
   FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================
--- 6. Backgrounds (per-user view backgrounds)
+-- 6. User Preferences (timer settings, etc.)
 -- ============================================
 CREATE TABLE app.backgrounds (
   user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,

@@ -117,9 +117,8 @@ export default function SubjectPicker({
               <div key={subject.id} className="relative group">
                 <Button
                   size="sm"
-                  className={`w-full justify-center text-white ${
-                    selectedSubject === subject.name ? activeClass : inactiveClass
-                  }`}
+                  className={`w-full justify-center text-white ${selectedSubject === subject.name ? activeClass : inactiveClass
+                    }`}
                   onClick={() => onSelectSubject(subject.name)}
                   disabled={isRunning}
                 >

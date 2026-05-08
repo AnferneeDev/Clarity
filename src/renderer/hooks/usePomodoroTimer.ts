@@ -261,57 +261,59 @@ export function usePomodoroTimer() {
     localStorage.setItem(LS_SELECTED, name);
   }, []);
 
-  // ---- Timer countdown (useEffect-driven, no imperative setInterval) ----
+  // ---- Timer countdown: simple decrement every second ----
   useEffect(() => {
     if (!isRunning || isPaused) return;
 
     window.electronAPI.app.log(`[TIMER-LOG] ⏱ countdown tick — timeLeft: ${timeLeft}`);
 
     const id = setTimeout(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          // Timer completed
-          window.electronAPI.app.log(`[TIMER-LOG] ⏰ ${currentPhase} finished, switching phase`);
-
-          if (currentPhase === 'focus') {
-            const totalSeconds = focusMinutes * 60;
-            const unsaved = totalSeconds - lastSavedSecondsRef.current;
-            if (unsaved > 1 && trackingSubjectRef.current) {
-              window.electronAPI.timer.saveSession(trackingSubjectRef.current, todayRef.current, unsaved / 60)
-                .catch(err => console.error('[Timer] Final save failed:', err));
-            }
-            lastSavedSecondsRef.current = 0;
-
-            sendNotification('Pomodoro complete', `Focus session finished. Time for a break!`);
-            playSound();
-          } else {
-            sendNotification('Break over', currentPhase === 'long' ? 'Long break finished. Time to focus!' : 'Short break finished. Time to focus!');
-            playSound();
-          }
-
-          const nextPhase: TimerPhase = currentPhase === 'focus'
-            ? (currentCycle % 4 === 0 ? 'long' : 'short')
-            : 'focus';
-
-          setIsRunning(false);
-          setIsPaused(false);
-          setPauseSeconds(0);
-          setCurrentPhase(nextPhase);
-          if (nextPhase === 'focus') setCurrentCycle(c => c + 1);
-          setTimeLeft(nextPhase === 'focus' ? focusMinutes * 60 : nextPhase === 'short' ? shortBreakMinutes * 60 : longBreakMinutes * 60);
-
-          if (autoStartBreaks) {
-            setTimeout(() => setIsRunning(true), 500);
-          }
-
-          return 0;
-        }
-        return prev - 1;
-      });
+      setTimeLeft(prev => prev - 1);
     }, 1000);
 
     return () => clearTimeout(id);
-  }, [isRunning, isPaused, timeLeft, currentPhase, currentCycle, focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks]);
+  }, [isRunning, isPaused, timeLeft]);
+
+  // ---- Timer completion: handles phase switch when timeLeft hits 0 ----
+  useEffect(() => {
+    if (!isRunning || isPaused || timeLeft > 0) return;
+
+    window.electronAPI.app.log(`[TIMER-LOG] ⏰ ${currentPhase} finished, switching phase`);
+
+    if (currentPhase === 'focus') {
+      const totalSeconds = focusMinutes * 60;
+      const unsaved = totalSeconds - lastSavedSecondsRef.current;
+      if (unsaved > 1 && trackingSubjectRef.current) {
+        window.electronAPI.timer.saveSession(trackingSubjectRef.current, todayRef.current, unsaved / 60)
+          .catch(err => console.error('[Timer] Final save failed:', err));
+      }
+      lastSavedSecondsRef.current = 0;
+      sendNotification('Pomodoro complete', 'Focus session finished. Time for a break!');
+      playSound();
+    } else {
+      sendNotification('Break over', currentPhase === 'long' ? 'Long break finished. Time to focus!' : 'Short break finished. Time to focus!');
+      playSound();
+    }
+
+    const nextPhase: TimerPhase = currentPhase === 'focus'
+      ? (currentCycle % 4 === 0 ? 'long' : 'short')
+      : 'focus';
+
+    const newDuration = nextPhase === 'focus' ? focusMinutes * 60
+      : nextPhase === 'short' ? shortBreakMinutes * 60
+      : longBreakMinutes * 60;
+
+    setIsRunning(false);
+    setIsPaused(false);
+    setPauseSeconds(0);
+    setCurrentPhase(nextPhase);
+    if (nextPhase === 'focus') setCurrentCycle(c => c + 1);
+    setTimeLeft(newDuration);
+
+    if (autoStartBreaks) {
+      setTimeout(() => setIsRunning(true), 500);
+    }
+  }, [timeLeft, isRunning, isPaused, currentPhase, currentCycle, focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks]);
 
   const handleStart = useCallback(() => {
     playSound();

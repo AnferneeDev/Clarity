@@ -90,7 +90,8 @@ export default function StatsView() {
 
   const [subjectDateData, setSubjectDateData] = useState<SubjectDateRow[]>([]);
   const [allSubjects, setAllSubjects] = useState<string[]>([]);
-  const { subjectTotals, isLoading, fetchStats } = useStats();
+  const [refreshing, setRefreshing] = useState(false);
+  const { subjectTotals, fetchStats } = useStats();
 
   const range = useMemo(
     () => getDateRange(dateFilter, customStart, customEnd),
@@ -189,14 +190,16 @@ export default function StatsView() {
             <Button 
               variant="secondary" 
               size="sm" 
-              className={`text-white bg-gray-200/50 border border-gray-700/50 hover:bg-white/20 ${isLoading ? 'opacity-50' : ''}`}
-              onClick={loadAllData} 
-              disabled={isLoading}
+              className={`text-white bg-gray-200/50 border border-gray-700/50 hover:bg-white/20 ${refreshing ? 'opacity-50' : ''}`}
+              onClick={async () => {
+                setRefreshing(true);
+                await loadAllData();
+                setTimeout(() => setRefreshing(false), 300);
+              }}
+              disabled={refreshing}
             >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
-
-            {/* Filters popover */}
             <Popover open={isConfigOpen} onOpenChange={setIsConfigOpen}>
               <PopoverTrigger asChild>
                 <Button variant="secondary" size="sm" className="text-white bg-gray-200/50 border border-gray-700/50 hover:bg-white/20">
@@ -309,8 +312,11 @@ export default function StatsView() {
 
         {/* Data area */}
         <div className="min-h-0 max-h-full overflow-auto rounded-xl border rounded-t-none border-gray-700/50 bg-gray-400/30 p-0">
-          {isLoading ? (
-            <div className="text-center py-6 text-white/60">Loading data...</div>
+          {refreshing ? (
+            <div className="flex items-center justify-center gap-2 py-10">
+              <RefreshCw className="h-5 w-5 animate-spin text-white/60" />
+              <span className="text-white/60 text-sm">Loading data...</span>
+            </div>
           ) : viewMode === 'table' ? (
             <Table>
               <TableHeader>

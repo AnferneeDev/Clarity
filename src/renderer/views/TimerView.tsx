@@ -17,9 +17,15 @@ export default function TimerView() {
           currentPhase={timer.currentPhase}
           isRunning={timer.isRunning}
           isPaused={timer.isPaused}
+          pauseSeconds={timer.pauseSeconds}
           currentCycle={timer.currentCycle}
           selectedSubject={timer.selectedSubject}
           phaseTotalSeconds={timer.phaseTotalSeconds}
+          allowLongTimers={timer.allowLongTimers}
+          onStart={timer.handleStart}
+          onPause={timer.handlePause}
+          onReset={timer.handleReset}
+          onSwitchPhase={timer.switchPhase}
           className="order-1"
         />
         <SubjectPicker
@@ -34,15 +40,11 @@ export default function TimerView() {
           onSelectSubject={timer.selectSubject}
           onAddSubject={timer.addSubject}
           onHideSubject={timer.hideSubject}
-          onDeleteSubject={timer.deleteSubject}
           onSetFocusMinutes={timer.setFocusMinutes}
           onSetShortBreakMinutes={timer.setShortBreakMinutes}
           onSetLongBreakMinutes={timer.setLongBreakMinutes}
           onSetAllowLongTimers={timer.setAllowLongTimers}
           onSetAutoStartBreaks={timer.setAutoStartBreaks}
-          onStart={timer.handleStart}
-          onPause={timer.handlePause}
-          onReset={timer.handleReset}
           className="order-2"
         />
       </div>

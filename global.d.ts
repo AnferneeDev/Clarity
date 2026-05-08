@@ -35,6 +35,7 @@ declare global {
         addSubject: (name: string) => Promise<unknown>;
         hideSubject: (name: string) => Promise<void>;
         deleteSubject: (name: string) => Promise<void>;
+        deleteSubjectCompletely: (name: string) => Promise<void>;
         saveSession: (subjectName: string, date: string, minutes: number) => Promise<{ success: boolean }>;
         getSubjectTotals: (startDate?: string, endDate?: string) => Promise<Array<{
           subject: string;
@@ -44,6 +45,11 @@ declare global {
           date: string;
           total_minutes: number;
           subjects: string[];
+        }>>;
+        getSubjectDateAggregated: (startDate?: string, endDate?: string) => Promise<Array<{
+          subject: string;
+          date: string;
+          total_minutes: number;
         }>>;
       };
       tasks: {

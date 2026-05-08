@@ -4,6 +4,7 @@ import { createMainWindow } from './lib/window';
 import { createTray, setTrayState } from './lib/tray';
 import { supabase } from './services/supabase';
 import { registerAllIpcHandlers, setActiveUserId } from './ipc';
+import { localCache } from './services/cache';
 
 // Handle squirrel startup
 try {
@@ -47,6 +48,16 @@ async function initApp() {
   if (session?.user) {
     setActiveUserId(session.user.id);
     console.log('[Main] Session restored:', session.user.email);
+
+    // Hydrate local cache from Supabase (non-blocking)
+    supabase.pullSessions(session.user.id)
+      .then(data => {
+        if (data.length > 0) {
+          localCache.hydrateFromSupabase(session.user.id, data);
+          console.log(`[Main] Cache hydrated: ${data.length} sessions`);
+        }
+      })
+      .catch(err => console.error('[Main] Cache hydration failed:', err));
   } else {
     console.log('[Main] No session found');
   }

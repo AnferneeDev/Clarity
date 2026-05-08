@@ -361,3 +361,41 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
 }
+
+/* ============================================
+   Clarity Design System
+   ============================================ */
+
+:root {
+  --accent-primary-rgb: 239 68 68;
+  --accent-primary: rgb(var(--accent-primary-rgb));
+  --timer-circle-bg: rgba(255, 255, 255, 0.08);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  border-radius: 1rem;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+}
+
+.border-glass-border {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.input-glass-compact {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.input-glass-compact:focus-within {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}

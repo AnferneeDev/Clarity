@@ -67,6 +67,7 @@ CREATE TABLE app.sessions (
 
 CREATE INDEX idx_sessions_user_date ON app.sessions(user_id, date);
 CREATE INDEX idx_sessions_user_subject ON app.sessions(user_id, subject_name);
+ALTER TABLE app.sessions ADD CONSTRAINT sessions_user_subject_date_uniq UNIQUE (user_id, subject_name, date);
 
 ALTER TABLE app.sessions ENABLE ROW LEVEL SECURITY;
 
@@ -206,6 +207,40 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION app.handle_new_user();
+
+-- ============================================
+-- Grants & Permissions
+-- ============================================
+-- Grant schema usage
+GRANT USAGE ON SCHEMA app TO anon, authenticated;
+
+-- Grant access to all existing tables/sequences/functions
+GRANT ALL ON ALL TABLES IN SCHEMA app TO anon, authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA app TO anon, authenticated;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA app TO anon, authenticated;
+
+-- Ensure future tables also get these permissions
+ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT ALL ON TABLES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT ALL ON SEQUENCES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT ALL ON FUNCTIONS TO anon, authenticated;
+
+-- ============================================
+-- RPC: Atomic session upsert (avoids read-then-write race)
+-- Must be in public schema for Supabase SDK .rpc() to find it
+-- ============================================
+CREATE OR REPLACE FUNCTION upsert_session(
+  p_user_id UUID,
+  p_subject_name TEXT,
+  p_date DATE,
+  p_minutes REAL
+) RETURNS VOID AS $$
+BEGIN
+  INSERT INTO app.sessions (user_id, subject_name, date, minutes)
+  VALUES (p_user_id, p_subject_name, p_date, p_minutes)
+  ON CONFLICT (user_id, subject_name, date)
+  DO UPDATE SET minutes = app.sessions.minutes + EXCLUDED.minutes;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================
 -- Migration note: 

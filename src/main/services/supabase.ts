@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
@@ -194,82 +194,76 @@ class SupabaseService {
   async addOrUpdateSession(userId: string, subjectName: string, date: string, minutes: number) {
     const normalized = subjectName.toLowerCase().trim();
 
-    // Build a deterministic UUID from userId + subject + date for idempotent upserts
-    const { data: existing } = await this.getClient()
-      .from('sessions')
-      .select('id, minutes')
-      .eq('user_id', userId)
-      .eq('subject_name', normalized)
-      .eq('date', date)
-      .maybeSingle();
+    console.log(`[Supabase] Saving session: user=${userId}, subject="${normalized}", date=${date}, mins=${minutes.toFixed(2)}`);
 
-    if (existing) {
-      await this.getClient()
-        .from('sessions')
-        .update({ minutes: existing.minutes + minutes })
-        .eq('id', existing.id);
-    } else {
-      await this.getClient()
-        .from('sessions')
-        .insert({
-          user_id: userId,
-          subject_name: normalized,
-          date,
-          minutes,
-        });
+    // Try atomic upsert via RPC first (single SQL statement, no race condition)
+    const { error: rpcError } = await this.getClient()
+      .rpc('upsert_session', {
+        p_user_id: userId,
+        p_subject_name: normalized,
+        p_date: date,
+        p_minutes: minutes,
+      });
+
+    if (!rpcError) {
+      console.log(`[Supabase] ✅ Session saved via RPC: ${minutes.toFixed(2)}m for "${normalized}"`);
+      return;
     }
-  }
 
-  async getSubjectTotals(userId: string, startDate?: string, endDate?: string) {
-    let query = this.getClient()
-      .from('sessions')
-      .select('subject_name, minutes')
-      .eq('user_id', userId);
+    // Fallback: RPC function not deployed → use direct table operations
+    console.warn(`[Supabase] RPC upsert failed (${rpcError.message}), falling back to direct ops`);
 
-    if (startDate) query = query.gte('date', startDate);
-    if (endDate) query = query.lte('date', endDate);
+    try {
+      const { data: existing } = await this.getClient()
+        .from('sessions')
+        .select('id, minutes')
+        .eq('user_id', userId)
+        .eq('subject_name', normalized)
+        .eq('date', date)
+        .maybeSingle();
 
-    const { data } = await query;
-    if (!data) return [];
-
-    const totals = new Map<string, number>();
-    for (const row of data) {
-      totals.set(row.subject_name, (totals.get(row.subject_name) || 0) + row.minutes);
-    }
-    return Array.from(totals.entries()).map(([subject, total_minutes]) => ({
-      subject: subject,
-      total_minutes,
-    }));
-  }
-
-  async getDailyAggregate(userId: string, startDate?: string, endDate?: string) {
-    let query = this.getClient()
-      .from('sessions')
-      .select('date, subject_name, minutes')
-      .eq('user_id', userId);
-
-    if (startDate) query = query.gte('date', startDate);
-    if (endDate) query = query.lte('date', endDate);
-
-    const { data } = await query;
-    if (!data) return [];
-
-    const byDate = new Map<string, { total_minutes: number; subjects: Set<string> }>();
-    for (const row of data) {
-      let entry = byDate.get(row.date);
-      if (!entry) {
-        entry = { total_minutes: 0, subjects: new Set() };
-        byDate.set(row.date, entry);
+      if (existing) {
+        await this.getClient()
+          .from('sessions')
+          .update({ minutes: existing.minutes + minutes })
+          .eq('id', existing.id);
+      } else {
+        await this.getClient()
+          .from('sessions')
+          .insert({
+            user_id: userId,
+            subject_name: normalized,
+            date,
+            minutes,
+          });
       }
-      entry.total_minutes += row.minutes;
-      entry.subjects.add(row.subject_name);
-    }
 
-    return Array.from(byDate.entries()).map(([date, entry]) => ({
-      date,
-      total_minutes: entry.total_minutes,
-      subjects: Array.from(entry.subjects),
-    }));
+      console.log(`[Supabase] ✅ Session saved via fallback: ${minutes.toFixed(2)}m for "${normalized}"`);
+    } catch (err: any) {
+      console.error('[Supabase] ❌ Session save failed (fallback):', err.message || err);
+    }
+  }
+
+  async pullSessions(userId: string, since?: string): Promise<Array<{
+    subject_name: string; date: string; minutes: number;
+  }>> {
+    let query = this.getClient()
+      .from('sessions')
+      .select('subject_name, date, minutes')
+      .eq('user_id', userId);
+
+    if (since) query = query.gte('date', since);
+
+    const { data } = await query;
+    return (data ?? []) as Array<{ subject_name: string; date: string; minutes: number }>;
+  }
+
+  async deleteSubjectCompletely(userId: string, name: string) {
+    const normalized = name.toLowerCase().trim();
+    await Promise.all([
+      this.getClient().from('subjects').delete().eq('user_id', userId).eq('name', normalized),
+      this.getClient().from('sessions').delete().eq('user_id', userId).eq('subject_name', normalized),
+    ]);
   }
 
   // ============================================

@@ -18,7 +18,9 @@ export function setActiveUserId(userId: string | null) {
 export function registerAllIpcHandlers(getMainWindow: () => BrowserWindow | null) {
   const getUserId = () => activeUserId ?? '';
 
-  registerAuthHandlers(getMainWindow);
+  registerAuthHandlers(getMainWindow, (id: string) => {
+    activeUserId = id;
+  });
   registerTimerHandlers(getMainWindow, getUserId);
   registerTasksHandlers(getMainWindow, getUserId);
   registerNotesHandlers(getMainWindow, getUserId);

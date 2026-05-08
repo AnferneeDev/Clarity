@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 interface SubjectTotal {
   subject: string;
@@ -14,9 +14,10 @@ interface DailyAggregate {
 export function useStats() {
   const [subjectTotals, setSubjectTotals] = useState<SubjectTotal[]>([]);
   const [dailyData, setDailyData] = useState<DailyAggregate[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   const fetchStats = useCallback(async (startDate?: string, endDate?: string) => {
+    setIsLoading(true);
     try {
       const [totals, daily] = await Promise.all([
         window.electronAPI.timer.getSubjectTotals(startDate, endDate),
@@ -30,10 +31,6 @@ export function useStats() {
       setIsLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
 
   return { subjectTotals, dailyData, isLoading, fetchStats };
 }

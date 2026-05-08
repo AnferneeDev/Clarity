@@ -16,9 +16,11 @@ const TIMER_CHANNELS = [
   'timer:addSubject',
   'timer:hideSubject',
   'timer:deleteSubject',
+  'timer:deleteSubjectCompletely',
   'timer:saveSession',
   'timer:getSubjectTotals',
   'timer:getDailyAggregate',
+  'timer:getSubjectDateAggregated',
 ] as const;
 
 const TASKS_CHANNELS = [
@@ -112,6 +114,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteSubject: (name: string) =>
       ipcRenderer.invoke('timer:deleteSubject', name),
 
+    deleteSubjectCompletely: (name: string) =>
+      ipcRenderer.invoke('timer:deleteSubjectCompletely', name),
+
     saveSession: (subjectName: string, date: string, minutes: number) =>
       ipcRenderer.invoke('timer:saveSession', subjectName, date, minutes),
 
@@ -120,6 +125,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     getDailyAggregate: (startDate?: string, endDate?: string) =>
       ipcRenderer.invoke('timer:getDailyAggregate', startDate, endDate),
+
+    getSubjectDateAggregated: (startDate?: string, endDate?: string) =>
+      ipcRenderer.invoke('timer:getSubjectDateAggregated', startDate, endDate),
   },
 
   // ---- Tasks ----

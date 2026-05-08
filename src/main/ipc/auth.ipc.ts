@@ -9,7 +9,10 @@ function makeValidate(getMainWindow: () => BrowserWindow | null) {
   };
 }
 
-export function registerAuthHandlers(getMainWindow: () => BrowserWindow | null) {
+export function registerAuthHandlers(
+  getMainWindow: () => BrowserWindow | null,
+  setUserId: (id: string) => void
+) {
   const validate = makeValidate(getMainWindow);
 
   ipcMain.handle('auth:login', async (e, email: string, password: string) => {
@@ -19,6 +22,8 @@ export function registerAuthHandlers(getMainWindow: () => BrowserWindow | null) 
 
     const { user, error } = await supabase.signIn(email, password);
     if (error) return { success: false, error: error.message };
+
+    setUserId(user.id);  // critical: enables timer saves
 
     const profile = await supabase.getProfile(user.id);
     return {

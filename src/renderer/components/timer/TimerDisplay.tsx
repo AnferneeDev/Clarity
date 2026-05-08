@@ -161,7 +161,7 @@ export default function TimerDisplay({
 
           {/* Center time display */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className={`tracking-tighter text-5xl font-light mb-3 ${isRunning ? 'animate-pulse' : ''}`} style={{ color: `rgb(var(--accent-primary-rgb))` }}>
+            <div className={`timer-text mb-3 tracking-tighter text-5xl font-light ${isRunning ? 'animate-pulse' : ''}`}>
               {pad2(displayMinutes)}:{pad2(displaySeconds)}
             </div>
             <div className="font-bold tracking-wider text-lg flex flex-col items-center">

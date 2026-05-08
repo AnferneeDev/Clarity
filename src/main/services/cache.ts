@@ -15,8 +15,17 @@ interface CacheSession {
 interface CacheData {
   sessions: CacheSession[];
   subjects: Array<{ user_id: string; name: string; is_hidden: boolean }>;
-  lastSyncTimestamps: Record<string, string>; // userId → ISO timestamp
-  lastSaveTimestamps: Record<string, number>;  // userId → epoch ms
+  lastSyncTimestamps: Record<string, string>;
+  lastSaveTimestamps: Record<string, number>;
+  alarms: AlarmEntry[];
+}
+
+interface AlarmEntry {
+  task_id: number;
+  user_id: string;
+  text: string;
+  due_date: string;   // ISO timestamp
+  notified: boolean;
 }
 
 // ============================================
@@ -27,6 +36,7 @@ const EMPTY_CACHE: CacheData = {
   subjects: [],
   lastSyncTimestamps: {},
   lastSaveTimestamps: {},
+  alarms: [],
 };
 
 class LocalCache {
@@ -50,6 +60,7 @@ class LocalCache {
           subjects: parsed.subjects || [],
           lastSyncTimestamps: parsed.lastSyncTimestamps || {},
           lastSaveTimestamps: parsed.lastSaveTimestamps || {},
+          alarms: parsed.alarms || [],
         };
       }
     } catch (err) {
@@ -247,6 +258,54 @@ class LocalCache {
     return this.data.sessions.filter(
       s => s.user_id === userId && s.date >= since
     );
+  }
+
+  // ---- Alarm queue (local, no DB calls) ----
+  setAlarms(userId: string, tasks: Array<{ id: number; text: string; done: boolean; due_date: string | null }>) {
+    // Replace alarms for this user
+    this.data.alarms = this.data.alarms.filter(a => a.user_id !== userId);
+    for (const t of tasks) {
+      if (t.due_date && !t.done) {
+        this.data.alarms.push({
+          task_id: t.id,
+          user_id: userId,
+          text: t.text,
+          due_date: t.due_date,
+          notified: false,
+        });
+      }
+    }
+    this.flush();
+  }
+
+  getUnnotifiedAlarms(userId: string): AlarmEntry[] {
+    const now = new Date().toISOString();
+    return this.data.alarms.filter(a =>
+      a.user_id === userId && !a.notified && a.due_date <= now
+    );
+  }
+
+  getPastUndoneAlarms(userId: string): AlarmEntry[] {
+    const now = new Date().toISOString();
+    return this.data.alarms.filter(a =>
+      a.user_id === userId && a.due_date <= now
+    );
+  }
+
+  markAlarmNotified(taskId: number, userId: string) {
+    const alarm = this.data.alarms.find(a => a.task_id === taskId && a.user_id === userId);
+    if (alarm) {
+      alarm.notified = true;
+      // Clear due_date so it disappears from alarm queue on next setAlarms
+    }
+    this.flush();
+  }
+
+  removeAlarm(taskId: number, userId: string) {
+    this.data.alarms = this.data.alarms.filter(a =>
+      !(a.task_id === taskId && a.user_id === userId)
+    );
+    this.flush();
   }
 }
 

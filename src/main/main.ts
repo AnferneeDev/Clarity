@@ -5,6 +5,7 @@ import { createTray, setTrayState } from './lib/tray';
 import { supabase } from './services/supabase';
 import { registerAllIpcHandlers, setActiveUserId } from './ipc';
 import { localCache } from './services/cache';
+import { alarmChecker } from './lib/alarms';
 
 // Handle squirrel startup
 try {
@@ -64,6 +65,10 @@ async function initApp() {
     } catch (err) {
       console.error('[Main] ❌ Cache hydration failed:', err);
     }
+
+    // Start alarm checker for past-due task reminders
+    alarmChecker.start(session.user.id);
+    console.log('[Main] 🔔 Alarm checker started');
   } else {
     console.log('[Main] No session found');
   }

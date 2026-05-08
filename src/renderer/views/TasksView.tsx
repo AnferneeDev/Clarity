@@ -104,11 +104,11 @@ export default function TasksView() {
                 )}
               </div>
 
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                  className="h-7 w-7 text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
                   onClick={() => openDueEditor(task)}
                   title={task.due_date ? 'Edit due date' : 'Set due date'}
                 >
@@ -117,7 +117,7 @@ export default function TasksView() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`h-7 w-7 ${task.starred ? 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50' : 'text-gray-400 hover:text-yellow-500 hover:bg-gray-100'}`}
+                  className={`h-7 w-7 transition-colors ${task.starred ? 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50' : 'text-gray-400 hover:text-yellow-500 hover:bg-gray-100'}`}
                   onClick={() => updateTask(task.id, { starred: !task.starred })}
                 >
                   <Star className={`h-4 w-4 ${task.starred ? 'fill-current' : ''}`} />
@@ -125,7 +125,7 @@ export default function TasksView() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                  className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                   onClick={() => deleteTask(task.id)}
                 >
                   <Trash2 className="h-4 w-4" />

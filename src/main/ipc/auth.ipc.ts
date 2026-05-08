@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow, shell } from 'electron';
 import { supabase } from '../services/supabase';
 import { localCache } from '../services/cache';
+import { alarmChecker } from '../lib/alarms';
 import type { Session } from '@supabase/supabase-js';
 
 
@@ -23,6 +24,10 @@ async function hydrateAfterAuth(userId: string) {
     } else {
       console.log('[Auth] ✅ No new sessions from server');
     }
+
+    // Start alarm checker
+    alarmChecker.start(userId);
+    console.log('[Auth] 🔔 Alarm checker started');
 
     // Also load user preferences
     const prefs = await supabase.getPreferences(userId);

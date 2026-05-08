@@ -44,7 +44,7 @@ export default function SettingsView() {
       {/* Account */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-white mb-3">Account</h3>
-        <div className="glass-card bg-white/5 border border-gray-700/30 rounded-xl p-4 flex items-center justify-between">
+        <div className="glass-card p-4 rounded-xl border border-gray-700/50 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
               <User className="w-5 h-5 text-blue-400" />
@@ -74,7 +74,7 @@ export default function SettingsView() {
             return (
               <div
                 key={key}
-                className="glass-card bg-white/5 border border-gray-700/30 rounded-xl p-3 flex items-center justify-between"
+                className="glass-card p-3 rounded-xl border border-gray-700/50 flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
                   <div

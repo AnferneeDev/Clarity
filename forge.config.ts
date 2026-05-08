@@ -9,11 +9,11 @@ import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-nati
 
 const config: ForgeConfig = {
   packagerConfig: {
-    appBundleId: "com.clarity-v2.app",
+    appBundleId: "com.clarityv3.app",
     win32metadata: {
       CompanyName: "Clarity",
-      FileDescription: "Clarity",
-      ProductName: "Clarity",
+      FileDescription: "Clarity v3",
+      ProductName: "Clarity v3",
     },
     asar: {
       unpack: "**/node_modules/better-sqlite3/**/*",
@@ -24,7 +24,7 @@ const config: ForgeConfig = {
       "assets/Click.wav",
       "assets",
     ],
-    executableName: "Clarity",
+    executableName: "ClarityV3",
   },
   rebuildConfig: {},
   makers: [

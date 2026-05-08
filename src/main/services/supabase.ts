@@ -252,12 +252,34 @@ class SupabaseService {
       .select('subject_name, date, minutes')
       .eq('user_id', userId);
 
-    if (since) query = query.gte('date', since);
+    if (since) {
+      query = query.gte('date', since);
+      console.log(`[Supabase] pullSessions — user=${userId.slice(0, 8)}... since=${since}`);
+    } else {
+      console.log(`[Supabase] pullSessions — user=${userId.slice(0, 8)}... (all time)`);
+    }
 
-    query = query.limit(10_000);  // safety net: each user's sessions fit easily
+    query = query.limit(10_000);
 
-    const { data } = await query;
-    return (data ?? []) as Array<{ subject_name: string; date: string; minutes: number }>;
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('[Supabase] pullSessions ERROR:', error.message);
+      return [];
+    }
+
+    const sessions = (data ?? []) as Array<{ subject_name: string; date: string; minutes: number }>;
+    if (sessions.length > 0) {
+      const totals = new Map<string, number>();
+      for (const s of sessions) {
+        totals.set(s.subject_name, (totals.get(s.subject_name) || 0) + s.minutes);
+      }
+      console.log(`[Supabase] pullSessions — received ${sessions.length} rows:`, Array.from(totals.entries()).map(([n, m]) => `${n}=${m.toFixed(1)}m`).join(', '));
+    } else {
+      console.log('[Supabase] pullSessions — 0 rows from server');
+    }
+
+    return sessions;
   }
 
   async deleteSubjectCompletely(userId: string, name: string) {

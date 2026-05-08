@@ -175,14 +175,20 @@ class LocalCache {
   mergeFromSupabase(userId: string, serverSessions: Array<{
     subject_name: string; date: string; minutes: number;
   }>) {
-    // Build a set of keys that already exist locally
-    const localKeys = new Set(
-      this.data.sessions
-        .filter(s => s.user_id === userId)
-        .map(s => `${s.subject_name}::${s.date}`)
-    );
+    const localSessions = this.data.sessions.filter(s => s.user_id === userId);
+    const localKeys = new Set(localSessions.map(s => `${s.subject_name}::${s.date}`));
+
+    console.log(`[Cache] mergeFromSupabase — local: ${localSessions.length} sessions, server: ${serverSessions.length} sessions`);
+    if (localSessions.length > 0) {
+      const localTotals = new Map<string, number>();
+      for (const s of localSessions) {
+        localTotals.set(s.subject_name, (localTotals.get(s.subject_name) || 0) + s.minutes);
+      }
+      console.log('[Cache]   local totals:', Array.from(localTotals.entries()).map(([n, m]) => `${n}=${m.toFixed(1)}m`).join(', '));
+    }
 
     let addedCount = 0;
+    let skippedCount = 0;
     for (const s of serverSessions) {
       const key = `${s.subject_name}::${s.date}`;
       if (!localKeys.has(key)) {
@@ -193,9 +199,13 @@ class LocalCache {
           minutes: s.minutes,
         });
         addedCount++;
+        console.log(`[Cache]   ➕ added: ${s.subject_name} ${s.date} ${s.minutes}m`);
+      } else {
+        skippedCount++;
       }
     }
 
+    console.log(`[Cache] mergeFromSupabase — done: ${addedCount} added, ${skippedCount} skipped`);
     this.data.lastSyncTimestamps[userId] = new Date().toISOString();
     this.flush();
     return addedCount;

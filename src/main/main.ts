@@ -51,17 +51,18 @@ async function initApp() {
 
     try {
       const lastSync = localCache.getLastSyncTimestamp(session.user.id);
-      console.log('[Main] Last sync timestamp:', lastSync || 'never');
+      console.log('[Main] 🔄 Hydrating cache... lastSync:', lastSync || 'never');
+      console.log('[Main]   userId:', session.user.id);
 
       const data = await supabase.pullSessions(session.user.id, lastSync || undefined);
       if (data.length > 0) {
         const added = localCache.mergeFromSupabase(session.user.id, data);
-        console.log(`[Main] Cache hydrated: ${added} new sessions (${data.length} from server)`);
+        console.log(`[Main] ✅ Cache hydrated: ${added} new, ${data.length} total from server`);
       } else {
-        console.log('[Main] No new sessions from server');
+        console.log('[Main] ✅ No new sessions from server — cache already current');
       }
     } catch (err) {
-      console.error('[Main] Cache hydration failed:', err);
+      console.error('[Main] ❌ Cache hydration failed:', err);
     }
   } else {
     console.log('[Main] No session found');

@@ -1,12 +1,37 @@
 import { ipcMain, BrowserWindow, shell } from 'electron';
 import { supabase } from '../services/supabase';
+import { localCache } from '../services/cache';
 import type { Session } from '@supabase/supabase-js';
+
 
 function makeValidate(getMainWindow: () => BrowserWindow | null) {
   return (e: Electron.IpcMainInvokeEvent): boolean => {
     const win = getMainWindow();
     return e.sender === win?.webContents;
   };
+}
+
+async function hydrateAfterAuth(userId: string) {
+  try {
+    const lastSync = localCache.getLastSyncTimestamp(userId);
+    console.log(`[Auth] 🔄 Hydrating cache for ${userId.slice(0, 8)}... lastSync: ${lastSync || 'never'}`);
+
+    const sessions = await supabase.pullSessions(userId, lastSync || undefined);
+    if (sessions.length > 0) {
+      const added = localCache.mergeFromSupabase(userId, sessions);
+      console.log(`[Auth] ✅ Cache hydrated: ${added} new, ${sessions.length} total`);
+    } else {
+      console.log('[Auth] ✅ No new sessions from server');
+    }
+
+    // Also load user preferences
+    const prefs = await supabase.getPreferences(userId);
+    if (prefs) {
+      console.log('[Auth] 📋 Loaded preferences from server');
+    }
+  } catch (err) {
+    console.error('[Auth] ❌ Hydration failed:', err);
+  }
 }
 
 export function registerAuthHandlers(
@@ -23,7 +48,8 @@ export function registerAuthHandlers(
     const { user, error } = await supabase.signIn(email, password);
     if (error) return { success: false, error: error.message };
 
-    setUserId(user.id);  // critical: enables timer saves
+    setUserId(user.id);
+    hydrateAfterAuth(user.id).catch(err => console.error('[Auth] Hydration error:', err));
 
     const profile = await supabase.getProfile(user.id);
     return {
@@ -68,6 +94,9 @@ export function registerAuthHandlers(
 
     const session: Session | null = await supabase.getSession();
     if (!session?.user) return null;
+
+    setUserId(session.user.id);
+    hydrateAfterAuth(session.user.id).catch(err => console.error('[Auth] Hydration error:', err));
 
     const profile = await supabase.getProfile(session.user.id);
     return {

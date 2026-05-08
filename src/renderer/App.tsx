@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import AppLayout from './layouts/AppLayout';
 import LoginView from './components/auth/LoginView';
@@ -13,6 +13,19 @@ function AppContent() {
   const { user, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('timer');
   const { background } = useBackground(activeTab);
+
+  // Listen for alarm notifications from main process (alarm checker)
+  useEffect(() => {
+    if (!user) return;
+    return window.electronAPI.app.onAlarm((data) => {
+      try {
+        new Notification(data.title, { body: data.body, silent: false });
+        window.electronAPI.app.log(`[NOTIFY] HTML5 alert fired: "${data.title}"`);
+      } catch (e) {
+        window.electronAPI.app.log(`[NOTIFY] HTML5 failed: ${e}`);
+      }
+    });
+  }, [user]);
 
   if (isLoading) {
     return (

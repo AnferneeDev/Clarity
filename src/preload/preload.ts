@@ -197,5 +197,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setTrayState: (state: 'active' | 'idle') => ipcRenderer.invoke('tray:setState', state),
     log: (msg: string) => ipcRenderer.invoke('debug:log', msg),
     notify: (title: string, body: string) => ipcRenderer.invoke('notify:fire', title, body),
+    onAlarm: (callback: (data: { title: string; body: string }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { title: string; body: string }) => callback(data);
+      ipcRenderer.on('alarm:fire', handler);
+      return () => ipcRenderer.removeListener('alarm:fire', handler);
+    },
   },
 });

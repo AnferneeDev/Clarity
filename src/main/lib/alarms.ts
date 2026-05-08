@@ -1,6 +1,6 @@
-import { Notification } from 'electron';
 import { localCache } from '../services/cache';
 import { supabase } from '../services/supabase';
+import { BrowserWindow } from 'electron';
 
 const CHECK_INTERVAL_MS = 30_000;
 
@@ -54,11 +54,12 @@ class AlarmChecker {
   private async fireAlarm(alarm: { task_id: number; user_id: string; text: string; due_date: string }) {
     console.log(`[Alarms] 🔔 Firing alarm: "${alarm.text}" (due: ${alarm.due_date})`);
 
-    // Fire native OS notification (works on Windows/macOS/Linux)
-    try {
-      new Notification({ title: 'Reminder', body: alarm.text, silent: false });
-    } catch (e) {
-      console.error('[Alarms] Notification failed:', e);
+    // Send to renderer which uses working HTML5 Notification API
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('alarm:fire', { title: 'Reminder', body: alarm.text });
+      }
     }
 
     localCache.markAlarmNotified(alarm.task_id, alarm.user_id);

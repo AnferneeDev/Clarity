@@ -1,4 +1,4 @@
-import { Clock, BarChart3, ListTodo, StickyNote, Settings } from 'lucide-react';
+import { Clock, BarChart3, ListTodo, StickyNote, Settings, Bell } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 // eslint-disable-next-line import/no-unresolved
 import logo from '@/assets/icon.ico';
@@ -45,6 +45,22 @@ export default function SidebarNav({ activeTab, setActiveTab }: SidebarNavProps)
             </Tooltip>
           );
         })}
+
+        {/* Test notification button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={async () => {
+                await window.electronAPI.app.notify('Test Notification', 'This is a test from Clarity!');
+                window.electronAPI.app.log('[TEST] Notification fired');
+              }}
+              className="flex items-center justify-center w-full px-3 py-2 rounded-lg text-sm transition text-white hover:bg-[#2a1636]/50 mt-auto"
+            >
+              <Bell className="w-5 h-5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Test Notification</TooltipContent>
+        </Tooltip>
       </nav>
     </aside>
   );

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import { createMainWindow } from './lib/window';
 import { createTray, setTrayState } from './lib/tray';
@@ -79,12 +79,12 @@ async function initApp() {
   });
 
   // Notification from renderer (fires native OS notification)
-  ipcMain.handle('notify:fire', async (_e, title: string, body: string) => {
-    try {
-      new Notification({ title, body, silent: false });
-      console.log('[Notify] ✅ Fired:', title);
-    } catch (e) {
-      console.error('[Notify] ❌ Failed:', e);
+  ipcMain.handle('notify:fire', async (e, title: string, body: string) => {
+    // Fire via renderer's HTML5 Notification (works on all platforms)
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('alarm:fire', { title, body });
+      console.log('[Notify] ✅ Fired via renderer:', title);
     }
   });
 
@@ -108,7 +108,10 @@ async function initApp() {
 }
 
 app.whenReady().then(() => {
-  // Register custom protocol for OAuth callbacks
+  // Required for Windows notifications
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.clarity.app');
+  }
   if (process.defaultApp) {
     if (process.argv.length >= 2) {
       app.setAsDefaultProtocolClient('clarity', process.execPath, [path.resolve(process.argv[1])]);

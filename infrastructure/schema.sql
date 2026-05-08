@@ -92,7 +92,7 @@ CREATE TABLE app.tasks (
   text        TEXT NOT NULL,
   done        BOOLEAN NOT NULL DEFAULT false,
   starred     BOOLEAN NOT NULL DEFAULT false,
-  due_date    DATE,
+  due_date    TIMESTAMPTZ,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -245,10 +245,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================
 -- Migration note: 
 -- To migrate data from public.* to app.*, run:
---   INSERT INTO app.subjects   SELECT id, user_id, name, is_hidden, created_at FROM public.subjects;
---   INSERT INTO app.sessions   SELECT id, user_id, subject_name, date, minutes, created_at FROM public.sessions;
---   INSERT INTO app.tasks      SELECT id, user_id, text, done, starred, due_date, created_at, created_at FROM public.todos;
---   INSERT INTO app.notes      SELECT id, user_id, title, content, color, created_at, created_at FROM public.notes;
---   INSERT INTO app.profiles   SELECT id, username, full_name, NULL, created_at FROM public.profiles;
--- (Adjust column mappings as needed based on actual public schema)
+--   ...
+-- If due_date column already exists as DATE, run:
+--   ALTER TABLE app.tasks ALTER COLUMN due_date TYPE TIMESTAMPTZ USING due_date::TIMESTAMPTZ;
 -- ============================================

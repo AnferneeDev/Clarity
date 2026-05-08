@@ -186,7 +186,13 @@ export default function StatsView() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="secondary" size="sm" className="text-white bg-gray-200/50 border border-gray-700/50 hover:bg-white/20" onClick={loadAllData} disabled={isLoading}>
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              className={`text-white bg-gray-200/50 border border-gray-700/50 hover:bg-white/20 ${isLoading ? 'opacity-50' : ''}`}
+              onClick={loadAllData} 
+              disabled={isLoading}
+            >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
 

@@ -51,7 +51,9 @@ export default function TasksView() {
 
   const saveDueDate = async () => {
     if (editingDueFor === null) return;
-    await updateTask(editingDueFor, { due_date: editingDueValue?.toISOString() ?? null });
+    const isoDate = editingDueValue?.toISOString() ?? null;
+    window.electronAPI.app.log(`[TASKS] saveDueDate — local: ${editingDueValue?.toLocaleString() || 'null'} → ISO: ${isoDate}`);
+    await updateTask(editingDueFor, { due_date: isoDate });
     setEditingDueFor(null);
     setEditingDueValue(null);
   };

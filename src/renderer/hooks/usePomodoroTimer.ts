@@ -36,8 +36,13 @@ function sendNotification(title: string, body: string) {
   try {
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(title, { body, silent: false });
+      window.electronAPI.app.log(`[NOTIFICATION] ✓ fired: "${title}" — "${body}"`);
+    } else {
+      window.electronAPI.app.log(`[NOTIFICATION] ✗ skipped (permission: ${Notification.permission})`);
     }
-  } catch { /* notifications optional */ }
+  } catch (e) {
+    window.electronAPI.app.log(`[NOTIFICATION] ✗ error: ${e}`);
+  }
 }
 
 function requestPermission() {

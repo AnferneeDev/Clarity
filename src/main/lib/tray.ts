@@ -33,7 +33,7 @@ export function createTray(mainWindow: BrowserWindow): Tray {
 
 export function setTrayState(state: 'active' | 'idle') {
   if (!tray) return;
-  const iconName = state === 'active' ? 'icon-active.ico' : 'icon.ico';
+  const iconName = state === 'active' ? 'icon.ico' : 'icon-bw.ico';
   const icon = nativeImage.createFromPath(getIconPath(iconName));
   tray.setImage(icon.resize({ width: 16, height: 16 }));
 }

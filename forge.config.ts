@@ -33,7 +33,7 @@ const config: ForgeConfig = {
     new MakerSquirrel({
       setupIcon: "assets/icon.ico",
     }),
-    new MakerZIP({}, ["darwin"]),
+    new MakerZIP({}, ["darwin", "win32"]),
     new MakerDeb({
       options: {
         icon: "assets/icon.png",

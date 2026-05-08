@@ -17,7 +17,7 @@ export function createMainWindow(preloadPath: string): BrowserWindow {
     minWidth: 800,
     center: true,
     trafficLightPosition: { x: 10, y: 10 },
-    icon: getIconPath('icon.ico'),
+    icon: getIconPath(process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,

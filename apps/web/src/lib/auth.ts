@@ -6,6 +6,8 @@ function getClient() {
   if (!supabaseClient) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    console.log('[Supabase Init] URL:', url);
+    console.log('[Supabase Init] Key Length:', key.length);
     supabaseClient = createClient(url, key, {
       auth: {
         persistSession: true,

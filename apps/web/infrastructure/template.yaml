@@ -40,6 +40,9 @@ Parameters:
     Default: claritytracker.online
   HostedZoneId:
     Type: String
+  CertificateArn:
+    Type: String
+    Description: ARN of an existing ACM Certificate in us-east-1
 
 Conditions:
   IsDev: !Equals [!Ref Environment, Dev]
@@ -53,7 +56,6 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      BucketName: !Sub clarity-${Environment}-${AWS::AccountId}-frontend
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -128,8 +130,8 @@ Resources:
           - PathPattern: /api/*
             TargetOriginId: ApiOrigin
             ViewerProtocolPolicy: redirect-to-https
-            AllowedMethods: [GET, POST, PUT, DELETE, OPTIONS]
-            CachedMethods: [OPTIONS]
+            AllowedMethods: [HEAD, DELETE, POST, GET, OPTIONS, PUT, PATCH]
+            CachedMethods: [HEAD, GET, OPTIONS]
             ForwardedValues:
               QueryString: true
               Cookies:
@@ -169,16 +171,7 @@ Resources:
             ResponseCode: 200
             ResponsePagePath: /index.html
 
-  CertificateArn:
-    Type: AWS::CertificateManager::Certificate
-    Properties:
-      DomainName: !Ref DomainName
-      SubjectAlternativeNames:
-        - !Sub www.${DomainName}
-      ValidationMethod: DNS
-      DomainValidationOptions:
-        - DomainName: !Ref DomainName
-          HostedZoneId: !Ref HostedZoneId
+
 
   # ============================================
   # CSP Headers — injected by CloudFront on all responses
@@ -191,14 +184,14 @@ Resources:
         SecurityHeadersConfig:
           ContentSecurityPolicy:
             Override: true
-            ContentSecurityPolicy: >
+            ContentSecurityPolicy: !Sub >-
               default-src 'self';
               script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co;
               style-src 'self' 'unsafe-inline';
               img-src 'self' data: https://*.supabase.co;
-              connect-src 'self' https://*.supabase.co https://*.execute-api.*.amazonaws.com;
+              connect-src 'self' https://*.supabase.co https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com;
               font-src 'self' data:;
-              frame-ancestors 'none'
+              frame-ancestors 'none';
           StrictTransportSecurity:
             Override: true
             AccessControlMaxAgeSec: 63072000
@@ -213,12 +206,29 @@ Resources:
             Override: true
             ReferrerPolicy: strict-origin-when-cross-origin
         CorsConfig:
-          CorsBehavior:
-            OriginOverride: true
-            OriginOverrideList:
+          AccessControlAllowCredentials: true
+          AccessControlAllowHeaders:
+            Items:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+              - Accept
+              - Origin
+              - Access-Control-Request-Method
+              - Access-Control-Request-Headers
+          AccessControlAllowMethods:
+            Items:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+          AccessControlAllowOrigins:
+            Items:
               - !Sub https://${DomainName}
               - !Sub https://www.${DomainName}
               - !If [IsDev, "http://localhost:3000", !Ref AWS::NoValue]
+          OriginOverride: true
 
   # ============================================
   # API Gateway HTTP API — locked to frontend domain
@@ -386,6 +396,35 @@ Resources:
       Tags:
         - Key: Project
           Value: Clarity
+
+  # ============================================
+  # DNS Records
+  # ============================================
+  DnsRecordSet:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      RecordSets:
+        - Name: !Ref DomainName
+          Type: A
+          AliasTarget:
+            HostedZoneId: Z2FDTNDATAQYW2 # Global CloudFront Hosted Zone ID
+            DNSName: !GetAtt CloudFrontDistribution.DomainName
+        - Name: !Ref DomainName
+          Type: AAAA
+          AliasTarget:
+            HostedZoneId: Z2FDTNDATAQYW2
+            DNSName: !GetAtt CloudFrontDistribution.DomainName
+        - Name: !Sub www.${DomainName}
+          Type: A
+          AliasTarget:
+            HostedZoneId: Z2FDTNDATAQYW2
+            DNSName: !GetAtt CloudFrontDistribution.DomainName
+        - Name: !Sub www.${DomainName}
+          Type: AAAA
+          AliasTarget:
+            HostedZoneId: Z2FDTNDATAQYW2
+            DNSName: !GetAtt CloudFrontDistribution.DomainName
 
 Outputs:
   ApiEndpoint:

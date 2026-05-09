@@ -4,8 +4,25 @@
 # ============================================
 set -euo pipefail
 
-BUCKET_NAME="${CLARITY_FRONTEND_BUCKET:-clarity-Prod-frontend}"
-DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID:-}"
+STACK_NAME="${STACK_NAME:-Clarity-Prod-API}"
+
+if [ -z "${CLARITY_FRONTEND_BUCKET:-}" ]; then
+  BUCKET_NAME=$(aws cloudformation describe-stacks \
+    --stack-name "$STACK_NAME" \
+    --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' \
+    --output text)
+else
+  BUCKET_NAME="$CLARITY_FRONTEND_BUCKET"
+fi
+
+if [ -z "${CLOUDFRONT_DISTRIBUTION_ID:-}" ]; then
+  DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+    --stack-name "$STACK_NAME" \
+    --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
+    --output text)
+else
+  DISTRIBUTION_ID="$CLOUDFRONT_DISTRIBUTION_ID"
+fi
 OUT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../../.. && pwd)/out"
 
 if [ ! -d "$OUT_DIR" ]; then

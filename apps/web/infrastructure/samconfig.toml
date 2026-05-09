@@ -1,0 +1,11 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "Clarity-Prod-API"
+resolve_s3 = true
+s3_prefix = "Clarity-Prod-API"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
+disable_rollback = false
+parameter_overrides = "Environment=\"Prod\" SupabaseUrl=\"https://uinzogvgnfpxiwodaosz.supabase.co\" SupabaseAnonKey=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpbnpvZ3ZnbmZweGl3b2Rhb3N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxODY3MTYsImV4cCI6MjA5Mzc2MjcxNn0.JQ15vBQO6-OVw-qynPq_sPPbdeEjkO_nd2OwoYC85Ec\" DomainName=\"claritytracker.online\" HostedZoneId=\"Z000163226GHURWI5HLR5\" CertificateArn=\"arn:aws:acm:us-east-1:446383247881:certificate/9d152ed6-7cc5-4193-9cde-ac78e55c374e\""

@@ -11,6 +11,17 @@ STACK_NAME="${STACK_NAME:-Clarity-Prod-API}"
 ENVIRONMENT="${1:-Prod}"
 DOMAIN="${DOMAIN:-claritytracker.online}"
 
+# Support for --guided flag
+GUIDED_FLAG=""
+EXECUTE_CHANGESET="--no-execute-changeset"
+for arg in "$@"; do
+  if [ "$arg" == "--guided" ]; then
+    GUIDED_FLAG="--guided"
+    EXECUTE_CHANGESET=""
+    echo "  [INFO] Running in GUIDED mode."
+  fi
+done
+
 echo "================================================"
 echo "  CLARITY WEB DEPLOYMENT"
 echo "================================================"
@@ -28,39 +39,43 @@ echo "[1/4] Building Lambda functions..."
 "$SCRIPT_DIR/utils/build.sh"
 
 echo "[2/4] Building Next.js frontend..."
-cd "$INFRA_DIR/../.." && npm run build
+# Extract Supabase values from samconfig.toml for build-time injection (handles escaped quotes)
+export NEXT_PUBLIC_SUPABASE_URL=$(grep -o 'SupabaseUrl=\\"[^\\"]*\\"' "$INFRA_DIR/samconfig.toml" | cut -d'=' -f2 | tr -d '\\"')
+export NEXT_PUBLIC_SUPABASE_ANON_KEY=$(grep -o 'SupabaseAnonKey=\\"[^\\"]*\\"' "$INFRA_DIR/samconfig.toml" | cut -d'=' -f2 | tr -d '\\"')
+
+echo "  Building with NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL"
+cd "$INFRA_DIR/.." && npm run build
 
 echo "[3/4] Validating SAM template..."
-sam validate --template-file "$INFRA_DIR/template.yaml"
+cd "$INFRA_DIR"
+sam validate
 
-echo "[4/4] Creating ChangeSet (NOT applying)..."
-sam deploy \
-  --template-file "$INFRA_DIR/template.yaml" \
+echo "[4/4] Deploying infrastructure..."
+sam deploy $GUIDED_FLAG \
   --stack-name "$STACK_NAME" \
   --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
-  --parameter-overrides \
-    Environment="$ENVIRONMENT" \
-    DomainName="$DOMAIN" \
-    HostedZoneId="${HOSTED_ZONE_ID:-}" \
-    SupabaseUrl="${SUPABASE_URL:-}" \
-    SupabaseAnonKey="${SUPABASE_ANON_KEY:-}" \
-  --no-execute-changeset \
+  $EXECUTE_CHANGESET \
   --resolve-s3
 
-echo ""
-echo "================================================"
-echo "  CHANGESET CREATED"
-echo "================================================"
-echo ""
-echo "  Manual review required. To apply the changeset:"
-echo "  -----------------------------------------------"
-echo "  aws cloudformation execute-change-set \\"
-echo "    --change-set-name \$(aws cloudformation describe-stacks \\"
-echo "      --stack-name $STACK_NAME --query 'Stacks[0].ChangeSetId' --output text)"
-echo ""
-echo "  Or use the AWS Console → CloudFormation → $STACK_NAME → Changesets"
-echo ""
-echo "================================================"
+if [ -z "$GUIDED_FLAG" ]; then
+  echo ""
+  echo "================================================"
+  echo "  CHANGESET CREATED"
+  echo "================================================"
+  echo ""
+  echo "  Manual review required. To apply the changeset:"
+  echo "  -----------------------------------------------"
+  echo "  aws cloudformation execute-change-set \\"
+  echo "    --change-set-name \$(aws cloudformation describe-stacks \\"
+  echo "      --stack-name $STACK_NAME --query 'Stacks[0].ChangeSetId' --output text)"
+  echo ""
+  echo "  Or use the AWS Console → CloudFormation → $STACK_NAME → Changesets"
+else
+  echo ""
+  echo "================================================"
+  echo "  DEPLOYMENT COMPLETE"
+  echo "================================================"
+fi
 
 # Sync frontend to S3 (can run regardless of ChangeSet)
 echo ""

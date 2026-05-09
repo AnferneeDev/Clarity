@@ -1,0 +1,402 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Clarity Web API + Frontend Hosting
+  Stack: Clarity-Prod-API
+  Tags: Project=Clarity Environment=Prod Phase=Web
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Architectures: [arm64]
+    MemorySize: 512
+    Timeout: 10
+    Environment:
+      Variables:
+        SUPABASE_URL: !Ref SupabaseUrl
+        SUPABASE_ANON_KEY: !Ref SupabaseAnonKey
+    Tags:
+      Project: Clarity
+      Environment: !Ref Environment
+      Phase: Web
+    LoggingConfig:
+      LogFormat: JSON
+      ApplicationLogLevel: INFO
+      SystemLogLevel: WARN
+
+Parameters:
+  Environment:
+    Type: String
+    Default: Prod
+    AllowedValues: [Dev, Staging, Prod]
+  SupabaseUrl:
+    Type: String
+    NoEcho: false
+  SupabaseAnonKey:
+    Type: String
+    NoEcho: true
+  DomainName:
+    Type: String
+    Default: claritytracker.online
+  HostedZoneId:
+    Type: String
+
+Conditions:
+  IsDev: !Equals [!Ref Environment, Dev]
+
+Resources:
+  # ============================================
+  # S3 Bucket — Private, CloudFront-only access via OAC
+  # ============================================
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub clarity-${Environment}-${AWS::AccountId}-frontend
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: Clarity
+        - Key: Environment
+          Value: !Ref Environment
+
+  # OAC: Only CloudFront can read from S3
+  S3OacConfig:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: clarity-frontend-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub ${FrontendBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
+  # ============================================
+  # CloudFront CDN
+  # ============================================
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        HttpVersion: http2
+        PriceClass: PriceClass_100
+        Aliases:
+          - !Ref DomainName
+          - !Sub www.${DomainName}
+        DefaultRootObject: index.html
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            OriginAccessControlId: !Ref S3OacConfig
+            S3OriginConfig: {}
+          - Id: ApiOrigin
+            DomainName: !Sub ${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+            CustomOriginConfig:
+              HTTPPort: 443
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          ResponseHeadersPolicyId: !Ref CspHeadersPolicy
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: ApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, POST, PUT, DELETE, OPTIONS]
+            CachedMethods: [OPTIONS]
+            ForwardedValues:
+              QueryString: true
+              Cookies:
+                Forward: all
+          - PathPattern: /_next/*
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            ResponseHeadersPolicyId: !Ref CspHeadersPolicy
+            MinTTL: 31536000
+            MaxTTL: 31536000
+            DefaultTTL: 31536000
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+          - PathPattern: /static/*
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            Compress: true
+            ResponseHeadersPolicyId: !Ref CspHeadersPolicy
+            MinTTL: 31536000
+            MaxTTL: 31536000
+            DefaultTTL: 31536000
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+  CertificateArn:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub www.${DomainName}
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+
+  # ============================================
+  # CSP Headers — injected by CloudFront on all responses
+  # ============================================
+  CspHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: clarity-csp-headers
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            Override: true
+            ContentSecurityPolicy: >
+              default-src 'self';
+              script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co;
+              style-src 'self' 'unsafe-inline';
+              img-src 'self' data: https://*.supabase.co;
+              connect-src 'self' https://*.supabase.co https://*.execute-api.*.amazonaws.com;
+              font-src 'self' data:;
+              frame-ancestors 'none'
+          StrictTransportSecurity:
+            Override: true
+            AccessControlMaxAgeSec: 63072000
+            IncludeSubdomains: true
+            Preload: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            Override: true
+            FrameOption: DENY
+          ReferrerPolicy:
+            Override: true
+            ReferrerPolicy: strict-origin-when-cross-origin
+        CorsConfig:
+          CorsBehavior:
+            OriginOverride: true
+            OriginOverrideList:
+              - !Sub https://${DomainName}
+              - !Sub https://www.${DomainName}
+              - !If [IsDev, "http://localhost:3000", !Ref AWS::NoValue]
+
+  # ============================================
+  # API Gateway HTTP API — locked to frontend domain
+  # ============================================
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Environment
+      CorsConfiguration:
+        AllowOrigins:
+          - !Sub https://${DomainName}
+          - !Sub https://www.${DomainName}
+          - !If [IsDev, "http://localhost:3000", !Ref AWS::NoValue]
+        AllowMethods: [GET, POST, PUT, DELETE, OPTIONS]
+        AllowHeaders: ["*"]
+
+  # ============================================
+  # Lambda Functions (ported from Electron IPC)
+  # ============================================
+
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/auth/
+      Handler: index.handler
+      Events:
+        Login:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /auth/login
+            Method: POST
+        Logout:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /auth/logout
+            Method: POST
+        Session:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /auth/session
+            Method: GET
+
+  AuthLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/clarity-${Environment}-auth
+      RetentionInDays: 30
+      Tags:
+        - Key: Project
+          Value: Clarity
+
+  TimerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/timer/
+      Handler: index.handler
+      Events:
+        Sessions:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /timer/sessions
+            Method: POST
+        Totals:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /timer/stats
+            Method: GET
+        Subjects:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /timer/subjects
+            Method: GET
+
+  TimerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/clarity-${Environment}-timer
+      RetentionInDays: 30
+      Tags:
+        - Key: Project
+          Value: Clarity
+
+  TasksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/tasks/
+      Handler: index.handler
+      Events:
+        GetAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /tasks
+            Method: GET
+        Create:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /tasks
+            Method: POST
+        Update:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /tasks/{id}
+            Method: PUT
+        Delete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /tasks/{id}
+            Method: DELETE
+
+  TasksLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/clarity-${Environment}-tasks
+      RetentionInDays: 30
+      Tags:
+        - Key: Project
+          Value: Clarity
+
+  NotesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/notes/
+      Handler: index.handler
+      Events:
+        GetAll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /notes
+            Method: GET
+        Create:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /notes
+            Method: POST
+        Update:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /notes/{id}
+            Method: PUT
+        Delete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /notes/{id}
+            Method: DELETE
+
+  NotesLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/clarity-${Environment}-notes
+      RetentionInDays: 30
+      Tags:
+        - Key: Project
+          Value: Clarity
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/
+  FrontendURL:
+    Description: CloudFront URL
+    Value: !Sub https://${DomainName}
+  BucketName:
+    Description: S3 bucket for frontend
+    Value: !Ref FrontendBucket
+  CloudFrontDistributionId:
+    Description: CloudFront distribution ID
+    Value: !Ref CloudFrontDistribution

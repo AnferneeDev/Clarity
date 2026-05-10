@@ -22,7 +22,8 @@ function getUserIdFromJwt(jwt) {
 }
 
 export const handler = async (event) => {
-  const path = event.requestContext?.http?.path || '';
+  const rawPath = event.requestContext?.http?.path || '';
+  const path = rawPath.startsWith('/api') ? rawPath.slice(4) : rawPath;
   const method = event.requestContext?.http?.method || 'GET';
 
   const auth = event.headers?.authorization || event.headers?.Authorization || '';
@@ -37,6 +38,7 @@ export const handler = async (event) => {
     process.env.SUPABASE_URL,
     process.env.SUPABASE_ANON_KEY,
     {
+      db: { schema: "app" },
       auth: { persistSession: false, autoRefreshToken: false },
       global: { headers: { Authorization: `Bearer ${jwt}` } },
     }
@@ -78,12 +80,16 @@ export const handler = async (event) => {
     if (method === 'GET' && path === '/timer/stats') {
       const start = event.queryStringParameters?.start;
       const end = event.queryStringParameters?.end;
+      const group = event.queryStringParameters?.group;
 
-      let q = supabase.from('sessions').select('subject_name,minutes').limit(10000);
+      let q = supabase.from('sessions').select('subject_name,date,minutes').limit(10000);
       if (start) q = q.gte('date', start);
       if (end) q = q.lte('date', end);
 
       const { data } = await q;
+      if (group === 'date') {
+        return response(200, (data || []).map(row => ({ subject: row.subject_name, date: row.date, total_minutes: row.minutes })));
+      }
       const totals = {};
       for (const row of (data || [])) {
         totals[row.subject_name] = (totals[row.subject_name] || 0) + row.minutes;

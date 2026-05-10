@@ -2,7 +2,14 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 async function request(path: string, options: RequestInit = {}) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('clarity_token') : null;
-  const res = await fetch(`${API_BASE}${path}`, {
+  const url = `${API_BASE}${path}`;
+
+  console.log(`[API] → ${options.method || 'GET'} ${url}`, {
+    hasToken: !!token,
+    body: options.body ? JSON.parse(options.body as string) : undefined,
+  });
+
+  const res = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -10,8 +17,17 @@ async function request(path: string, options: RequestInit = {}) {
       ...(options.headers as Record<string, string> || {}),
     },
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || res.statusText);
+
+  const text = await res.text();
+  let data: any;
+  try { data = JSON.parse(text); } catch { data = { raw: text }; }
+
+  if (!res.ok) {
+    console.error(`[API] ← ${res.status} ${path}`, data);
+    throw new Error(data.error || data.raw || res.statusText);
+  }
+
+  console.log(`[API] ← ${res.status} ${path}`, Array.isArray(data) ? `${data.length} items` : typeof data === 'object' ? Object.keys(data).join(', ') : data);
   return data;
 }
 
@@ -43,6 +59,7 @@ export const api = {
       const params = new URLSearchParams();
       if (start) params.set('start', start);
       if (end) params.set('end', end);
+      params.set('group', 'date');
       return request(`/timer/stats?${params}`);
     },
     addSubject: (name: string) =>

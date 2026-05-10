@@ -236,14 +236,15 @@ Resources:
   HttpApi:
     Type: AWS::Serverless::HttpApi
     Properties:
-      StageName: !Ref Environment
+      StageName: $default
       CorsConfiguration:
         AllowOrigins:
           - !Sub https://${DomainName}
           - !Sub https://www.${DomainName}
-          - !If [IsDev, "http://localhost:3000", !Ref AWS::NoValue]
+          - "http://localhost:3000"
         AllowMethods: [GET, POST, PUT, DELETE, OPTIONS]
         AllowHeaders: ["*"]
+        AllowCredentials: true
 
   # ============================================
   # Lambda Functions (ported from Electron IPC)
@@ -252,7 +253,7 @@ Resources:
   AuthFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/auth/
+      CodeUri: build/lambdas/auth/
       Handler: index.handler
       Events:
         Login:
@@ -286,7 +287,7 @@ Resources:
   TimerFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/timer/
+      CodeUri: build/lambdas/timer/
       Handler: index.handler
       Events:
         Sessions:
@@ -320,7 +321,7 @@ Resources:
   TasksFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/tasks/
+      CodeUri: build/lambdas/tasks/
       Handler: index.handler
       Events:
         GetAll:
@@ -360,7 +361,7 @@ Resources:
   NotesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambdas/notes/
+      CodeUri: build/lambdas/notes/
       Handler: index.handler
       Events:
         GetAll:

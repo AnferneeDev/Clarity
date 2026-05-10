@@ -24,6 +24,9 @@ for fn in auth timer tasks notes; do
   # Install production deps
   (cd "$BUILD_DIR/$fn" && npm install --production --no-progress)
 
+  # Zip the function code and node_modules (handled by SAM now, but keeping build clean)
+  # (cd "$BUILD_DIR/$fn" && python3 "$SCRIPT_DIR/zip_it.py" "$fn.zip")
+
   # Remove dev files to minimize zip size
   rm -f "$BUILD_DIR/$fn/package-lock.json"
 done

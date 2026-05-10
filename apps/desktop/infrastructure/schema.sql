@@ -228,7 +228,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT ALL ON FUNCTIONS TO anon, authentic
 -- RPC: Atomic session upsert (avoids read-then-write race)
 -- Must be in public schema for Supabase SDK .rpc() to find it
 -- ============================================
-CREATE OR REPLACE FUNCTION upsert_session(
+-- Atomic upsert for timer sessions
+CREATE OR REPLACE FUNCTION app.upsert_session(
   p_user_id UUID,
   p_subject_name TEXT,
   p_date DATE,

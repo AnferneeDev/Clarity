@@ -1,0 +1,1 @@
+{"statusCode":500,"headers":{"Content-Type":"application/json"},"body":"{\"error\":\"JWT cryptographic operation failed\"}"}

@@ -20,7 +20,8 @@ function getUserIdFromJwt(jwt) {
 }
 
 export const handler = async (event) => {
-  const path = event.requestContext?.http?.path || '';
+  const rawPath = event.requestContext?.http?.path || '';
+  const path = rawPath.startsWith('/api') ? rawPath.slice(4) : rawPath;
   const method = event.requestContext?.http?.method || 'GET';
   const noteId = event.pathParameters?.id;
 
@@ -35,6 +36,7 @@ export const handler = async (event) => {
     process.env.SUPABASE_URL,
     process.env.SUPABASE_ANON_KEY,
     {
+      db: { schema: "app" },
       auth: { persistSession: false, autoRefreshToken: false },
       global: { headers: { Authorization: `Bearer ${jwt}` } },
     }

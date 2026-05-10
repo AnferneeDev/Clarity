@@ -26,7 +26,40 @@ function safeLocalNumber(key: string, fallback: number): number {
   } catch { return fallback; }
 }
 
-function playSound() { /* No sound in web — can add Web Audio later */ }
+let audioCache: HTMLAudioElement | null = null;
+function playSound() {
+  try {
+    if (!audioCache) {
+      audioCache = new Audio('/Click.wav');
+      audioCache.volume = 0.4;
+    }
+    audioCache.currentTime = 0;
+    audioCache.play().catch(() => {});
+  } catch {}
+}
+
+const NOTIFY_PERMISSION_KEY = 'clarity:notify_permission_requested';
+function sendNotification(title: string, body: string) {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    console.warn('[Notify] Notifications not supported in this browser');
+    return;
+  }
+  console.log('[Notify] permission:', Notification.permission);
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/favicon.ico' });
+    console.log('[Notify] fired:', title);
+  } else {
+    console.warn('[Notify] permission not granted, cannot fire:', title);
+  }
+}
+
+function requestNotificationPermission() {
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
+    try { localStorage.setItem(NOTIFY_PERMISSION_KEY, '1'); } catch {}
+  }
+}
 
 export function usePomodoroTimer() {
   const store = useTimerStore();
@@ -41,11 +74,15 @@ export function usePomodoroTimer() {
   const [isLoading, setIsLoading] = useState(true);
 
   const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prefSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionStartRef = useRef<number>(0);
   const trackingSubjectRef = useRef<string>('');
   const todayRef = useRef(getLocalDateString());
   const lastSavedSecondsRef = useRef(0);
+  const totalPausedMsRef = useRef(0);
+  const pauseStartRef = useRef(0);
+  const phaseEndRef = useRef(0);
 
   useEffect(() => {
     const load = async () => {
@@ -114,7 +151,7 @@ export function usePomodoroTimer() {
   const saveChunk = useCallback(async () => {
     const subject = trackingSubjectRef.current;
     if (!subject) return;
-    const activeMs = Date.now() - sessionStartRef.current;
+    const activeMs = (Date.now() - sessionStartRef.current) - totalPausedMsRef.current;
     const activeSeconds = Math.floor(activeMs / 1000);
     if (activeSeconds >= lastSavedSecondsRef.current + DEFAULT_CHUNK_SECONDS) {
       try { await api.timer.saveSession(subject, todayRef.current, 1); } catch { }
@@ -126,7 +163,8 @@ export function usePomodoroTimer() {
   const flushUnsaved = useCallback(async () => {
     const subject = trackingSubjectRef.current;
     if (!subject) return;
-    const activeSeconds = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+    const activeMs = (Date.now() - sessionStartRef.current) - totalPausedMsRef.current;
+    const activeSeconds = Math.floor(activeMs / 1000);
     const unsaved = activeSeconds - lastSavedSecondsRef.current;
     if (unsaved > 2) {
       try { await api.timer.saveSession(subject, todayRef.current, unsaved / 60); } catch { }
@@ -144,24 +182,40 @@ export function usePomodoroTimer() {
     return () => { if (autoSaveRef.current) clearInterval(autoSaveRef.current); };
   }, [store.isRunning, store.isPaused, store.currentPhase, saveChunk]);
 
-  // Countdown tick
+  // Wall-clock countdown (accurate even when tab is backgrounded)
   useEffect(() => {
-    if (!store.isRunning || store.isPaused) return;
-    const id = setTimeout(() => store.setTimeLeft(Math.max(0, store.timeLeft - 1)), 1000);
-    return () => clearTimeout(id);
+    if (!store.isRunning || store.isPaused) {
+      if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+      return;
+    }
+    countdownRef.current = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((phaseEndRef.current - Date.now()) / 1000));
+      if (remaining !== store.timeLeft) {
+        console.log('[Timer] countdown tick: timeLeft', store.timeLeft, '→', remaining, '| phaseEnd:', phaseEndRef.current, 'now:', Date.now());
+      }
+      store.setTimeLeft(remaining);
+    }, 250);
+    return () => { if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; } };
   }, [store.isRunning, store.isPaused, store.timeLeft]);
 
   // Timer completion
   useEffect(() => {
-    if (!store.isRunning || store.isPaused || store.timeLeft > 0) return;
+    if (!store.isRunning || store.isPaused) return;
+    const timerExpired = store.timeLeft <= 0 || (phaseEndRef.current > 0 && Date.now() >= phaseEndRef.current);
+    if (!timerExpired) return;
+
+    console.log('[Timer] Phase completed! phase:', store.currentPhase, 'timeLeft:', store.timeLeft);
 
     if (store.currentPhase === 'focus') {
-      const totalSeconds = focusMinutes * 60;
-      const unsaved = totalSeconds - lastSavedSecondsRef.current;
-      if (unsaved > 1 && trackingSubjectRef.current) {
-        api.timer.saveSession(trackingSubjectRef.current, todayRef.current, unsaved / 60).catch(() => {});
-      }
+      flushUnsaved();
       lastSavedSecondsRef.current = 0;
+      sendNotification('Pomodoro complete', 'Focus session finished. Time for a break!');
+      playSound();
+      console.log('[Timer] Focus complete — notification + sound fired');
+    } else {
+      sendNotification('Break over', store.currentPhase === 'long' ? 'Long break finished. Time to focus!' : 'Short break finished. Time to focus!');
+      playSound();
+      console.log('[Timer] Break complete — notification + sound fired');
     }
 
     const nextPhase: TimerPhase = store.currentPhase === 'focus'
@@ -178,14 +232,29 @@ export function usePomodoroTimer() {
     if (nextPhase === 'focus') store.setCurrentCycle(store.currentCycle + 1);
     store.setTimeLeft(newDuration);
 
-    if (autoStartBreaks) setTimeout(() => store.setIsRunning(true), 500);
-  }, [store.timeLeft, store.isRunning, store.isPaused, store.currentPhase, store.currentCycle, focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks]);
+    if (autoStartBreaks) setTimeout(() => {
+      phaseEndRef.current = Date.now() + newDuration * 1000;
+      store.setIsRunning(true);
+    }, 500);
+  }, [store.timeLeft, store.isRunning, store.isPaused, store.currentPhase, store.currentCycle, focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks, flushUnsaved, store]);
 
   const handleStart = useCallback(() => {
     if (!store.selectedSubject) return;
-    trackingSubjectRef.current = store.selectedSubject;
-    sessionStartRef.current = Date.now();
-    lastSavedSecondsRef.current = 0;
+    requestNotificationPermission();
+
+    const isResuming = pauseStartRef.current > 0;
+    if (!isResuming) {
+      trackingSubjectRef.current = store.selectedSubject;
+      sessionStartRef.current = Date.now();
+      lastSavedSecondsRef.current = 0;
+      totalPausedMsRef.current = 0;
+      phaseEndRef.current = Date.now() + store.timeLeft * 1000;
+    } else {
+      totalPausedMsRef.current += Date.now() - pauseStartRef.current;
+      phaseEndRef.current += Date.now() - pauseStartRef.current;
+    }
+    pauseStartRef.current = 0;
+
     store.setIsRunning(true);
     store.setIsPaused(false);
   }, [store]);
@@ -193,9 +262,13 @@ export function usePomodoroTimer() {
   const handlePause = useCallback(() => {
     if (!store.isRunning) return;
     if (store.isPaused) {
+      totalPausedMsRef.current += Date.now() - pauseStartRef.current;
+      phaseEndRef.current += Date.now() - pauseStartRef.current;
+      pauseStartRef.current = 0;
       store.setIsPaused(false);
       return;
     }
+    pauseStartRef.current = Date.now();
     store.setIsPaused(true);
     if (store.currentPhase === 'focus') flushUnsaved();
   }, [store, flushUnsaved]);
@@ -203,6 +276,9 @@ export function usePomodoroTimer() {
   const handleReset = useCallback(async () => {
     await flushUnsaved();
     lastSavedSecondsRef.current = 0;
+    totalPausedMsRef.current = 0;
+    pauseStartRef.current = 0;
+    phaseEndRef.current = 0;
     store.setIsRunning(false);
     store.setIsPaused(false);
     store.setTimeLeft(focusMinutes * 60);
@@ -217,10 +293,25 @@ export function usePomodoroTimer() {
     store.setCurrentPhase(phase);
     store.setTimeLeft(duration);
     lastSavedSecondsRef.current = 0;
+    totalPausedMsRef.current = 0;
+    pauseStartRef.current = 0;
+    phaseEndRef.current = 0;
   }, [store, focusMinutes, shortBreakMinutes, longBreakMinutes, flushUnsaved]);
+
+  // Save on tab/window blur
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden && store.isRunning && store.currentPhase === 'focus') {
+        flushUnsaved();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [store.isRunning, store.currentPhase, flushUnsaved]);
 
   // Cleanup on unmount
   useEffect(() => () => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
     if (store.isRunning && store.currentPhase === 'focus') flushUnsaved();
   }, []);
 

@@ -53,10 +53,15 @@ export default function StatsPageContent() {
         api.timer.getSubjectDateAggregated(range.start, range.end),
         api.timer.getSubjectTotals('1970-01-01', '2100-12-31'),
       ]);
+      console.log('[Stats] getSubjectDateAggregated response (dateData):', dateData, 'length:', Array.isArray(dateData) ? dateData.length : 'N/A');
+      if (Array.isArray(dateData) && dateData.length > 0) {
+        console.log('[Stats] first item keys:', Object.keys(dateData[0]));
+        console.log('[Stats] has date field?', 'date' in dateData[0]);
+      }
       setSubjectDateData(Array.isArray(dateData) ? dateData : []);
       setAllSubjects(Array.isArray(allTimeTotals) ? allTimeTotals.map((s: any) => s.subject) : []);
       await fetchStats(range.start, range.end);
-    } catch { }
+    } catch (e) { console.error('[Stats] loadAllData failed:', e); }
   }, [range.start, range.end, fetchStats]);
 
   useEffect(() => { loadAllData(); }, [loadAllData]);

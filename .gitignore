@@ -1,5 +1,5 @@
 # Dependencies
-node_modules/
+node_modules
 
 # Environment
 .env
@@ -32,3 +32,4 @@ apps/mobile/dist/
 
 # Next.js
 apps/web/.next/
+design.md

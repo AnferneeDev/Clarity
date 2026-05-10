@@ -13,7 +13,8 @@ function log(level, msg, data) {
 }
 
 export const handler = async (event) => {
-  const path = event.requestContext?.http?.path || '';
+  const rawPath = event.requestContext?.http?.path || '';
+  const path = rawPath.startsWith('/api') ? rawPath.slice(4) : rawPath;
   const method = event.requestContext?.http?.method || 'GET';
 
   // Auth Lambdas use the anon key directly (no user JWT needed for login/logout)

@@ -6,8 +6,7 @@ function getClient() {
   if (!supabaseClient) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-    console.log('[Supabase Init] URL:', url);
-    console.log('[Supabase Init] Key Length:', key.length);
+    console.log('[AUTH] Creating Supabase client — URL:', url ? `${url.slice(0, 30)}...` : 'EMPTY', 'Key:', key ? `${key.slice(0, 10)}...` : 'EMPTY');
     supabaseClient = createClient(url, key, {
       auth: {
         persistSession: true,
@@ -24,11 +23,16 @@ function getClient() {
 }
 
 export async function signIn(email: string, password: string) {
+  console.log('[AUTH] signIn called — email:', email);
   const { data, error } = await getClient().auth.signInWithPassword({ email, password });
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    console.error('[AUTH] signIn failed:', error.message);
+    return { success: false, error: error.message };
+  }
   if (data.session) {
     localStorage.setItem('clarity_token', data.session.access_token);
     localStorage.setItem('clarity_refresh', data.session.refresh_token);
+    console.log('[AUTH] signIn success — user:', data.user.id, 'token saved');
   }
   return {
     success: true,
@@ -37,22 +41,31 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function signUp(email: string, password: string) {
+  console.log('[AUTH] signUp called — email:', email);
   const { data, error } = await getClient().auth.signUp({ email, password });
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    console.error('[AUTH] signUp failed:', error.message);
+    return { success: false, error: error.message };
+  }
+  console.log('[AUTH] signUp success');
   return { success: true };
 }
 
 export async function signOut() {
+  console.log('[AUTH] signOut');
   localStorage.removeItem('clarity_token');
   localStorage.removeItem('clarity_refresh');
   await getClient().auth.signOut();
 }
 
 export async function restoreSession() {
+  console.log('[AUTH] restoreSession — checking for existing session...');
   const { data } = await getClient().auth.getSession();
   if (data.session) {
     localStorage.setItem('clarity_token', data.session.access_token);
+    console.log('[AUTH] restoreSession — session found, user:', data.session.user.id);
     return { id: data.session.user.id, email: data.session.user.email ?? '' };
   }
+  console.log('[AUTH] restoreSession — no session found');
   return null;
 }

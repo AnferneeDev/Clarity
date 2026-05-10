@@ -23,10 +23,29 @@ if [ -z "${CLOUDFRONT_DISTRIBUTION_ID:-}" ]; then
 else
   DISTRIBUTION_ID="$CLOUDFRONT_DISTRIBUTION_ID"
 fi
-OUT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../../.. && pwd)/out"
+UTILS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INFRA_DIR="$(dirname "$(dirname "$UTILS_DIR")")"
+WEB_DIR="$(dirname "$INFRA_DIR")"
+OUT_DIR="$WEB_DIR/out"
 
+echo "[1/2] Building Next.js frontend..."
+# Extract Supabase values from samconfig.toml for build-time injection
+export NEXT_PUBLIC_SUPABASE_URL=$(grep -o 'SupabaseUrl=\\"[^\\"]*\\"' "$INFRA_DIR/samconfig.toml" | cut -d'=' -f2 | tr -d '\\"')
+export NEXT_PUBLIC_SUPABASE_ANON_KEY=$(grep -o 'SupabaseAnonKey=\\"[^\\"]*\\"' "$INFRA_DIR/samconfig.toml" | cut -d'=' -f2 | tr -d '\\"')
+
+if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
+  echo "ERROR: Could not extract Supabase configuration from $INFRA_DIR/samconfig.toml"
+  exit 1
+fi
+
+echo "  Building with NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL"
+cd "$WEB_DIR" && npm run build
+
+echo "[2/2] Syncing to S3..."
+
+# Ensure out directory exists after build
 if [ ! -d "$OUT_DIR" ]; then
-  echo "ERROR: No build output at $OUT_DIR. Run 'npm run build' first."
+  echo "ERROR: Build failed to produce output at $OUT_DIR"
   exit 1
 fi
 

@@ -1,7 +1,6 @@
 -- ============================================
--- Clarity v3 — App Schema + RLS
--- Compatible with v2 public schema for data migration
--- SOURCE OF TRUTH: ../../infrastructure/schema.sql
+-- Clarity — Shared Database Schema (source of truth)
+-- Run this in Supabase SQL Editor to initialize
 -- ============================================
 
 CREATE SCHEMA IF NOT EXISTS app;
@@ -9,7 +8,7 @@ CREATE SCHEMA IF NOT EXISTS app;
 -- ============================================
 -- 1. Profiles (extends auth.users)
 -- ============================================
-CREATE TABLE app.profiles (
+CREATE TABLE IF NOT EXISTS app.profiles (
   id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username    TEXT UNIQUE NOT NULL,
   full_name   TEXT,
@@ -31,7 +30,7 @@ CREATE POLICY "profiles_update" ON app.profiles
 -- ============================================
 -- 2. Subjects (pomodoro subjects)
 -- ============================================
-CREATE TABLE app.subjects (
+CREATE TABLE IF NOT EXISTS app.subjects (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
@@ -57,7 +56,7 @@ CREATE POLICY "subjects_delete" ON app.subjects
 -- ============================================
 -- 3. Sessions (timer sessions)
 -- ============================================
-CREATE TABLE app.sessions (
+CREATE TABLE IF NOT EXISTS app.sessions (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   subject_name  TEXT NOT NULL,
@@ -67,9 +66,9 @@ CREATE TABLE app.sessions (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_sessions_user_date ON app.sessions(user_id, date);
-CREATE INDEX idx_sessions_user_subject ON app.sessions(user_id, subject_name);
-CREATE INDEX idx_sessions_updated_at ON app.sessions(user_id, updated_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_date ON app.sessions(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_subject ON app.sessions(user_id, subject_name);
+CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON app.sessions(user_id, updated_at);
 ALTER TABLE app.sessions ADD CONSTRAINT sessions_user_subject_date_uniq UNIQUE (user_id, subject_name, date);
 
 ALTER TABLE app.sessions ENABLE ROW LEVEL SECURITY;
@@ -89,7 +88,7 @@ CREATE POLICY "sessions_delete" ON app.sessions
 -- ============================================
 -- 4. Tasks (todos)
 -- ============================================
-CREATE TABLE app.tasks (
+CREATE TABLE IF NOT EXISTS app.tasks (
   id          BIGSERIAL PRIMARY KEY,
   user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   text        TEXT NOT NULL,
@@ -117,7 +116,7 @@ CREATE POLICY "tasks_delete" ON app.tasks
 -- ============================================
 -- 5. Notes
 -- ============================================
-CREATE TABLE app.notes (
+CREATE TABLE IF NOT EXISTS app.notes (
   id          BIGSERIAL PRIMARY KEY,
   user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   title       TEXT NOT NULL,
@@ -142,9 +141,9 @@ CREATE POLICY "notes_delete" ON app.notes
   FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================
--- 6. User Preferences (timer settings, etc.)
+-- 6. Background Images
 -- ============================================
-CREATE TABLE app.backgrounds (
+CREATE TABLE IF NOT EXISTS app.backgrounds (
   user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   view_name  TEXT NOT NULL,
   image_url  TEXT NOT NULL,
@@ -167,9 +166,9 @@ CREATE POLICY "backgrounds_delete" ON app.backgrounds
   FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================
--- 7. User Preferences (timer settings, etc.)
+-- 7. User Preferences
 -- ============================================
-CREATE TABLE app.user_preferences (
+CREATE TABLE IF NOT EXISTS app.user_preferences (
   user_id               UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   focus_minutes         INTEGER NOT NULL DEFAULT 25,
   short_break_minutes   INTEGER NOT NULL DEFAULT 5,
@@ -214,24 +213,20 @@ CREATE TRIGGER on_auth_user_created
 -- ============================================
 -- Grants & Permissions
 -- ============================================
--- Grant schema usage
 GRANT USAGE ON SCHEMA app TO anon, authenticated;
 
--- Grant access to all existing tables/sequences/functions
 GRANT ALL ON ALL TABLES IN SCHEMA app TO anon, authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA app TO anon, authenticated;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA app TO anon, authenticated;
 
--- Ensure future tables also get these permissions
 ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT ALL ON TABLES TO anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT ALL ON SEQUENCES TO anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT ALL ON FUNCTIONS TO anon, authenticated;
 
 -- ============================================
--- RPC: Atomic session upsert (avoids read-then-write race)
--- Must be in public schema for Supabase SDK .rpc() to find it
+-- RPC: Atomic session upsert
+-- Updated: tracks updated_at for offline sync detection
 -- ============================================
--- Atomic upsert for timer sessions
 CREATE OR REPLACE FUNCTION app.upsert_session(
   p_user_id UUID,
   p_subject_name TEXT,
@@ -247,11 +242,3 @@ BEGIN
     updated_at = now();
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- ============================================
--- Migration note: 
--- To migrate data from public.* to app.*, run:
---   ...
--- If due_date column already exists as DATE, run:
---   ALTER TABLE app.tasks ALTER COLUMN due_date TYPE TIMESTAMPTZ USING due_date::TIMESTAMPTZ;
--- ============================================

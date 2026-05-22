@@ -87,11 +87,24 @@ export const handler = async (event) => {
       if (end) q = q.lte('date', end);
 
       const { data } = await q;
+      const rows = data || [];
+
       if (group === 'date') {
-        return response(200, (data || []).map(row => ({ subject: row.subject_name, date: row.date, total_minutes: row.minutes })));
+        // Group by subject AND date
+        const dateTotals = {};
+        for (const row of rows) {
+          const key = `${row.date}_${row.subject_name}`;
+          if (!dateTotals[key]) {
+            dateTotals[key] = { subject: row.subject_name, date: row.date, total_minutes: 0 };
+          }
+          dateTotals[key].total_minutes += row.minutes;
+        }
+        return response(200, Object.values(dateTotals));
       }
+
+      // Default: Group by subject only
       const totals = {};
-      for (const row of (data || [])) {
+      for (const row of rows) {
         totals[row.subject_name] = (totals[row.subject_name] || 0) + row.minutes;
       }
       return response(200, Object.entries(totals).map(([subject, total_minutes]) => ({ subject, total_minutes })));

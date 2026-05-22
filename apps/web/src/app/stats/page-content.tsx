@@ -74,7 +74,26 @@ export default function StatsPageContent() {
     if (dateFilter === 'day') return null;
     const subs = visibleSubjectTotals.map(s => s.subject).sort();
     const dates = [...new Set(subjectDateData.map(s => s.date))].sort().reverse();
-    return { subjects: subs, rows: dates.map(date => { const cells: Record<string, number> = {}; let total = 0; for (const subj of subs) { const m = subjectDateData.find(r => r.date === date && r.subject === subj)?.total_minutes || 0; cells[subj] = m; total += m; } return { date, cells, total }; }) };
+    
+    // Create a lookup map for faster access
+    const dataMap = new Map();
+    subjectDateData.forEach(r => {
+      dataMap.set(`${r.date}_${r.subject}`, r.total_minutes);
+    });
+
+    return {
+      subjects: subs,
+      rows: dates.map(date => {
+        const cells: Record<string, number> = {};
+        let total = 0;
+        for (const subj of subs) {
+          const m = dataMap.get(`${date}_${subj}`) || 0;
+          cells[subj] = m;
+          total += m;
+        }
+        return { date, cells, total };
+      })
+    };
   }, [dateFilter, subjectDateData, visibleSubjectTotals]);
 
   const deleteSubj = async (s: string) => { if (!confirm(`Permanently delete "${s}"?`)) return; try { await api.timer.deleteSubjectCompletely(s); await loadAllData(); } catch { } };

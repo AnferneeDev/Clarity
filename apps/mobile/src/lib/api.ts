@@ -11,10 +11,12 @@ async function request(path: string, options: RequestInit = {}) {
   const token = await getToken();
   const url = `${API_BASE}${path}`;
 
-  console.log(`[API] → ${options.method || 'GET'} ${url}`, {
-    hasToken: !!token,
-    body: options.body ? JSON.parse(options.body as string) : undefined,
-  });
+  if (__DEV__) {
+    console.log(`[API] → ${options.method || 'GET'} ${url}`, {
+      hasToken: !!token,
+      body: options.body ? JSON.parse(options.body as string) : undefined,
+    });
+  }
 
   const res = await fetch(url, {
     ...options,
@@ -30,11 +32,13 @@ async function request(path: string, options: RequestInit = {}) {
   try { data = JSON.parse(text); } catch { data = { raw: text }; }
 
   if (!res.ok) {
-    console.error(`[API] ← ${res.status} ${path}`, data);
+    if (__DEV__) console.error(`[API] ← ${res.status} ${path}`, data);
     throw new Error(data.error || data.raw || res.statusText);
   }
 
-  console.log(`[API] ← ${res.status} ${path}`, Array.isArray(data) ? `${data.length} items` : typeof data === 'object' ? Object.keys(data).join(', ') : data);
+  if (__DEV__) {
+    console.log(`[API] ← ${res.status} ${path}`, Array.isArray(data) ? `${data.length} items` : typeof data === 'object' ? Object.keys(data).join(', ') : data);
+  }
   return data;
 }
 

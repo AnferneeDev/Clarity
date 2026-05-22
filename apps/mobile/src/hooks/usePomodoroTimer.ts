@@ -75,6 +75,42 @@ export function usePomodoroTimer(userId: string | null) {
   const totalPausedMsRef = useRef(0);
   const pauseStartRef = useRef(0);
   const phaseEndRef = useRef(0);
+  const scheduledNotificationIdRef = useRef<string | null>(null);
+
+  const cancelTimerNotification = useCallback(async () => {
+    if (scheduledNotificationIdRef.current) {
+      const id = scheduledNotificationIdRef.current;
+      scheduledNotificationIdRef.current = null;
+      try {
+        const { cancelScheduledNotificationAsync } = await import('expo-notifications');
+        await cancelScheduledNotificationAsync(id);
+      } catch {}
+    }
+  }, []);
+
+  const scheduleTimerNotification = useCallback(async (phase: TimerPhase, seconds: number) => {
+    try {
+      await cancelTimerNotification();
+      if (seconds <= 0) return;
+      const { getPermissionsAsync, requestPermissionsAsync, scheduleNotificationAsync } = await import('expo-notifications');
+      const { status } = await getPermissionsAsync();
+      let finalStatus = status;
+      if (finalStatus !== 'granted') {
+        const { status: newStatus } = await requestPermissionsAsync();
+        finalStatus = newStatus;
+      }
+      if (finalStatus === 'granted') {
+        scheduledNotificationIdRef.current = await scheduleNotificationAsync({
+          content: {
+            title: phase === 'focus' ? 'Focus Session Complete' : 'Break Finished',
+            body: phase === 'focus' ? 'Time for a break!' : 'Time to focus!',
+            sound: true,
+          },
+          trigger: { seconds },
+        });
+      }
+    } catch {}
+  }, [cancelTimerNotification]);
 
   useEffect(() => {
     const load = async () => {
@@ -177,8 +213,12 @@ export function usePomodoroTimer(userId: string | null) {
   const flushUnsaved = useCallback(async () => {
     const subject = trackingSubjectRef.current;
     if (!subject || !userId) return;
-    const activeMs = (Date.now() - sessionStartRef.current) - totalPausedMsRef.current;
-    const activeSeconds = Math.floor(activeMs / 1000);
+    let endMs = Date.now();
+    if (phaseEndRef.current > 0 && endMs > phaseEndRef.current) {
+      endMs = phaseEndRef.current;
+    }
+    const activeMs = (endMs - sessionStartRef.current) - totalPausedMsRef.current;
+    const activeSeconds = Math.max(0, Math.floor(activeMs / 1000));
     const unsaved = activeSeconds - lastSavedSecondsRef.current;
     if (unsaved > 2) {
       await upsertSession(userId, subject, todayRef.current, unsaved / 60);
@@ -212,6 +252,8 @@ export function usePomodoroTimer(userId: string | null) {
     const timerExpired = store.timeLeft <= 0 || (phaseEndRef.current > 0 && Date.now() >= phaseEndRef.current);
     if (!timerExpired) return;
 
+    cancelTimerNotification();
+
     if (store.currentPhase === 'focus') {
       flushUnsaved();
       lastSavedSecondsRef.current = 0;
@@ -239,8 +281,9 @@ export function usePomodoroTimer(userId: string | null) {
     if (autoStartBreaks) setTimeout(() => {
       phaseEndRef.current = Date.now() + newDuration * 1000;
       store.setIsRunning(true);
+      scheduleTimerNotification(nextPhase, newDuration);
     }, 500);
-  }, [store.timeLeft, store.isRunning, store.isPaused, store.currentPhase, store.currentCycle, focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks, flushUnsaved]);
+  }, [store.timeLeft, store.isRunning, store.isPaused, store.currentPhase, store.currentCycle, focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks, flushUnsaved, cancelTimerNotification, scheduleTimerNotification]);
 
   const handleStart = useCallback(() => {
     if (!store.selectedSubject) return;
@@ -260,7 +303,8 @@ export function usePomodoroTimer(userId: string | null) {
 
     store.setIsRunning(true);
     store.setIsPaused(false);
-  }, [store]);
+    scheduleTimerNotification(store.currentPhase, store.timeLeft);
+  }, [store, scheduleTimerNotification]);
 
   const handlePause = useCallback(() => {
     if (!store.isRunning) return;
@@ -269,15 +313,18 @@ export function usePomodoroTimer(userId: string | null) {
       phaseEndRef.current += Date.now() - pauseStartRef.current;
       pauseStartRef.current = 0;
       store.setIsPaused(false);
+      scheduleTimerNotification(store.currentPhase, store.timeLeft);
       return;
     }
     pauseStartRef.current = Date.now();
     store.setIsPaused(true);
     if (store.currentPhase === 'focus') flushUnsaved();
-  }, [store, flushUnsaved]);
+    cancelTimerNotification();
+  }, [store, flushUnsaved, cancelTimerNotification, scheduleTimerNotification]);
 
   const handleReset = useCallback(async () => {
     await flushUnsaved();
+    cancelTimerNotification();
     lastSavedSecondsRef.current = 0;
     totalPausedMsRef.current = 0;
     pauseStartRef.current = 0;
@@ -286,10 +333,11 @@ export function usePomodoroTimer(userId: string | null) {
     store.setIsPaused(false);
     store.setTimeLeft(focusMinutes * 60);
     store.setCurrentPhase('focus');
-  }, [store, focusMinutes, flushUnsaved]);
+  }, [store, focusMinutes, flushUnsaved, cancelTimerNotification]);
 
   const switchPhase = useCallback((phase: TimerPhase) => {
     if (store.currentPhase === 'focus') flushUnsaved();
+    cancelTimerNotification();
     const duration = phase === 'focus' ? focusMinutes * 60 : phase === 'short' ? shortBreakMinutes * 60 : longBreakMinutes * 60;
     store.setIsRunning(false);
     store.setIsPaused(false);
@@ -299,7 +347,7 @@ export function usePomodoroTimer(userId: string | null) {
     totalPausedMsRef.current = 0;
     pauseStartRef.current = 0;
     phaseEndRef.current = 0;
-  }, [store, focusMinutes, shortBreakMinutes, longBreakMinutes, flushUnsaved]);
+  }, [store, focusMinutes, shortBreakMinutes, longBreakMinutes, flushUnsaved, cancelTimerNotification]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state: AppStateStatus) => {

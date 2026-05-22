@@ -182,7 +182,7 @@ export async function replaceSubjects(userId: string, subjects: Array<{ id: stri
 export async function getTasks(userId: string) {
   const db = await getDb();
   return db.getAllAsync<{ id: number; text: string; done: number; starred: number; due_date: string | null; synced: number; pending_action: string | null }>(
-    'SELECT * FROM tasks WHERE user_id = ? ORDER BY starred DESC, done ASC, id DESC',
+    "SELECT * FROM tasks WHERE user_id = ? AND (pending_action IS NULL OR pending_action != 'delete') ORDER BY starred DESC, done ASC, id DESC",
     [userId]
   );
 }
@@ -217,6 +217,11 @@ export async function deleteTaskLocally(taskId: number) {
 export async function removeSyncedTask(taskId: number) {
   const db = await getDb();
   await db.runAsync('DELETE FROM tasks WHERE id = ?', [taskId]);
+}
+
+export async function markTaskSynced(taskId: number) {
+  const db = await getDb();
+  await db.runAsync('UPDATE tasks SET synced = 1, pending_action = NULL WHERE id = ?', [taskId]);
 }
 
 export async function replaceTasks(userId: string, tasks: Array<{ id: number; text: string; done: boolean; starred: boolean; due_date: string | null }>) {
@@ -280,6 +285,11 @@ export async function deleteNoteLocally(noteId: number) {
 export async function removeSyncedNote(noteId: number) {
   const db = await getDb();
   await db.runAsync('DELETE FROM notes WHERE id = ?', [noteId]);
+}
+
+export async function markNoteSynced(noteId: number) {
+  const db = await getDb();
+  await db.runAsync('UPDATE notes SET synced = 1, pending_action = NULL WHERE id = ?', [noteId]);
 }
 
 export async function replaceNotes(userId: string, notes: Array<{ id: number; title: string; content: string; color: string }>) {

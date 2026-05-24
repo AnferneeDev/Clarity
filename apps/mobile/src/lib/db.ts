@@ -1,13 +1,22 @@
 import { getLocalDateString } from './utils';
 
 let dbInstance: any = null;
+// Promise-lock: prevents concurrent open+migrate calls racing on Android,
+// which causes NativeDatabase.prepareAsync NullPointerException.
+let dbInitPromise: Promise<any> | null = null;
 
-async function getDb() {
+export async function getDb() {
   if (dbInstance) return dbInstance;
-  const { openDatabaseAsync } = await import('expo-sqlite');
-  dbInstance = await openDatabaseAsync('clarity.db');
-  await migrate(dbInstance);
-  return dbInstance;
+  if (dbInitPromise) return dbInitPromise;
+  dbInitPromise = (async () => {
+    const { openDatabaseAsync } = await import('expo-sqlite');
+    const db = await openDatabaseAsync('clarity.db');
+    await migrate(db);
+    dbInstance = db;
+    dbInitPromise = null;
+    return db;
+  })();
+  return dbInitPromise;
 }
 
 async function migrate(db: any) {
@@ -104,13 +113,27 @@ export async function setLastSync(table: string, timestamp: number) {
 
 export async function upsertSession(userId: string, subjectName: string, date: string, minutes: number) {
   const db = await getDb();
-  await db.runAsync(
-    `INSERT INTO sessions (id, user_id, subject_name, date, minutes, synced)
-     VALUES (?, ?, ?, ?, ?, 0)
-     ON CONFLICT(user_id, subject_name, date)
-     DO UPDATE SET minutes = sessions.minutes + excluded.minutes, synced = 0`,
-    [`${userId}_${subjectName}_${date}`, userId, subjectName.toLowerCase().trim(), date, minutes]
-  );
+  const id = `${userId}_${subjectName}_${date}`;
+  if (__DEV__) {
+    console.log(`[DB] upsertSession: Attempting to insert/update session: id=${id}, userId=${userId}, subjectName=${subjectName}, date=${date}, minutes=${minutes}`);
+  }
+  try {
+    const result = await db.runAsync(
+      `INSERT INTO sessions (id, user_id, subject_name, date, minutes, synced)
+       VALUES (?, ?, ?, ?, ?, 0)
+       ON CONFLICT(user_id, subject_name, date)
+       DO UPDATE SET minutes = sessions.minutes + excluded.minutes, synced = 0`,
+      [id, userId, subjectName.toLowerCase().trim(), date, minutes]
+    );
+    if (__DEV__) {
+      console.log(`[DB] upsertSession: Success`, result);
+    }
+  } catch (err) {
+    if (__DEV__) {
+      console.error(`[DB] upsertSession: Failed`, err);
+    }
+    throw err;
+  }
 }
 
 export async function getSessionTotals(userId: string, start?: string, end?: string) {
@@ -137,18 +160,45 @@ export async function getSessionDateAggregated(userId: string, start?: string, e
 
 export async function getUnsyncedSessions(userId: string) {
   const db = await getDb();
-  return db.getAllAsync<{ subject_name: string; date: string; minutes: number }>(
-    'SELECT subject_name, date, minutes FROM sessions WHERE user_id = ? AND synced = 0',
-    [userId]
-  );
+  if (__DEV__) {
+    console.log(`[DB] getUnsyncedSessions: Checking for user_id=${userId}`);
+  }
+  try {
+    const rows = await db.getAllAsync<{ subject_name: string; date: string; minutes: number }>(
+      'SELECT subject_name, date, minutes FROM sessions WHERE user_id = ? AND synced = 0',
+      [userId]
+    );
+    if (__DEV__) {
+      console.log(`[DB] getUnsyncedSessions: Found ${rows.length} unsynced sessions`, rows);
+    }
+    return rows;
+  } catch (err) {
+    if (__DEV__) {
+      console.error(`[DB] getUnsyncedSessions: Failed`, err);
+    }
+    throw err;
+  }
 }
 
 export async function markSessionsSynced(userId: string, subjectName: string, date: string) {
   const db = await getDb();
-  await db.runAsync(
-    'UPDATE sessions SET synced = 1 WHERE user_id = ? AND subject_name = ? AND date = ?',
-    [userId, subjectName, date]
-  );
+  if (__DEV__) {
+    console.log(`[DB] markSessionsSynced: Marking synced user_id=${userId}, subjectName=${subjectName}, date=${date}`);
+  }
+  try {
+    const result = await db.runAsync(
+      'UPDATE sessions SET synced = 1 WHERE user_id = ? AND subject_name = ? AND date = ?',
+      [userId, subjectName, date]
+    );
+    if (__DEV__) {
+      console.log(`[DB] markSessionsSynced: Success`, result);
+    }
+  } catch (err) {
+    if (__DEV__) {
+      console.error(`[DB] markSessionsSynced: Failed`, err);
+    }
+    throw err;
+  }
 }
 
 // ---- Subjects ----
@@ -189,23 +239,37 @@ export async function getTasks(userId: string) {
 
 export async function upsertTask(userId: string, task: { id?: number; text: string; done?: boolean; starred?: boolean; due_date?: string | null }) {
   const db = await getDb();
-  if (task.id) {
-    const fields: string[] = [];
-    const values: any[] = [];
-    if (task.text !== undefined) { fields.push('text = ?'); values.push(task.text); }
-    if (task.done !== undefined) { fields.push('done = ?'); values.push(task.done ? 1 : 0); }
-    if (task.starred !== undefined) { fields.push('starred = ?'); values.push(task.starred ? 1 : 0); }
-    if (task.due_date !== undefined) { fields.push('due_date = ?'); values.push(task.due_date); }
-    fields.push('synced = 0');
-    fields.push("pending_action = 'update'");
-    values.push(task.id);
-    await db.runAsync(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`, values);
-  } else {
-    await db.runAsync(
-      `INSERT INTO tasks (user_id, text, done, starred, due_date, synced, pending_action)
-       VALUES (?, ?, ?, ?, ?, 0, 'create')`,
-      [userId, task.text, task.done ? 1 : 0, task.starred ? 1 : 0, task.due_date || null]
-    );
+  if (__DEV__) {
+    console.log(`[DB] upsertTask: Attempting to upsert, userId=${userId}, task=`, task);
+  }
+  try {
+    let result;
+    if (task.id) {
+      const fields: string[] = [];
+      const values: any[] = [];
+      if (task.text !== undefined) { fields.push('text = ?'); values.push(task.text); }
+      if (task.done !== undefined) { fields.push('done = ?'); values.push(task.done ? 1 : 0); }
+      if (task.starred !== undefined) { fields.push('starred = ?'); values.push(task.starred ? 1 : 0); }
+      if (task.due_date !== undefined) { fields.push('due_date = ?'); values.push(task.due_date); }
+      fields.push('synced = 0');
+      fields.push("pending_action = 'update'");
+      values.push(task.id);
+      result = await db.runAsync(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`, values);
+    } else {
+      result = await db.runAsync(
+        `INSERT INTO tasks (user_id, text, done, starred, due_date, synced, pending_action)
+         VALUES (?, ?, ?, ?, ?, 0, 'create')`,
+        [userId, task.text, task.done ? 1 : 0, task.starred ? 1 : 0, task.due_date || null]
+      );
+    }
+    if (__DEV__) {
+      console.log(`[DB] upsertTask: Success`, result);
+    }
+  } catch (err) {
+    if (__DEV__) {
+      console.error(`[DB] upsertTask: Failed`, err);
+    }
+    throw err;
   }
 }
 
@@ -258,22 +322,36 @@ export async function getNotes(userId: string) {
 
 export async function upsertNote(userId: string, note: { id?: number; title?: string; content?: string; color?: string }) {
   const db = await getDb();
-  if (note.id) {
-    const fields: string[] = [];
-    const values: any[] = [];
-    if (note.title !== undefined) { fields.push('title = ?'); values.push(note.title); }
-    if (note.content !== undefined) { fields.push('content = ?'); values.push(note.content); }
-    if (note.color !== undefined) { fields.push('color = ?'); values.push(note.color); }
-    fields.push('synced = 0');
-    fields.push("pending_action = 'update'");
-    values.push(note.id);
-    await db.runAsync(`UPDATE notes SET ${fields.join(', ')} WHERE id = ?`, values);
-  } else {
-    await db.runAsync(
-      `INSERT INTO notes (user_id, title, content, color, synced, pending_action)
-       VALUES (?, ?, ?, ?, 0, 'create')`,
-      [userId, note.title || '', note.content || '', note.color || '#6366f1']
-    );
+  if (__DEV__) {
+    console.log(`[DB] upsertNote: Attempting to upsert, userId=${userId}, note=`, note);
+  }
+  try {
+    let result;
+    if (note.id) {
+      const fields: string[] = [];
+      const values: any[] = [];
+      if (note.title !== undefined) { fields.push('title = ?'); values.push(note.title); }
+      if (note.content !== undefined) { fields.push('content = ?'); values.push(note.content); }
+      if (note.color !== undefined) { fields.push('color = ?'); values.push(note.color); }
+      fields.push('synced = 0');
+      fields.push("pending_action = 'update'");
+      values.push(note.id);
+      result = await db.runAsync(`UPDATE notes SET ${fields.join(', ')} WHERE id = ?`, values);
+    } else {
+      result = await db.runAsync(
+        `INSERT INTO notes (user_id, title, content, color, synced, pending_action)
+         VALUES (?, ?, ?, ?, 0, 'create')`,
+        [userId, note.title || '', note.content || '', note.color || '#6366f1']
+      );
+    }
+    if (__DEV__) {
+      console.log(`[DB] upsertNote: Success`, result);
+    }
+  } catch (err) {
+    if (__DEV__) {
+      console.error(`[DB] upsertNote: Failed`, err);
+    }
+    throw err;
   }
 }
 

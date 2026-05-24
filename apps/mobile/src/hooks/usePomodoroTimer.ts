@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Alert } from 'react-native';
 import { getLocalDateString } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { useTimerStore } from '@/lib/store';
@@ -130,9 +130,21 @@ export function usePomodoroTimer(userId: string | null) {
         setAutoStartBreaksState(as === 'true');
 
         const data = await api.timer.getSubjects();
-        setSubjects(Array.isArray(data) ? data.map((s: any) => ({ id: s.id, name: s.name, is_hidden: s.is_hidden })) : []);
+        const loadedSubjects = Array.isArray(data)
+          ? data.map((s: any) => ({ id: s.id, name: s.name, is_hidden: s.is_hidden }))
+          : [];
+        setSubjects(loadedSubjects);
 
-        if (!store.selectedSubject && sel) store.setSelectedSubject(sel);
+        if (!store.selectedSubject) {
+          if (sel) {
+            store.setSelectedSubject(sel);
+          } else {
+            const firstVisible = loadedSubjects.find(sub => !sub.is_hidden);
+            if (firstVisible) {
+              store.setSelectedSubject(firstVisible.name);
+            }
+          }
+        }
       } catch {} finally { setIsLoading(false); }
     };
     load();
@@ -177,14 +189,19 @@ export function usePomodoroTimer(userId: string | null) {
   }, []);
 
   const addSubject = useCallback(async (name: string) => {
-    try { await api.timer.addSubject(name); } catch {}
+    const formattedName = name.toLowerCase().trim();
+    try { await api.timer.addSubject(formattedName); } catch {}
     setSubjects(prev => {
-      if (!prev.some(s => s.name === name.toLowerCase())) {
-        return [...prev, { id: String(Date.now()), name: name.toLowerCase(), is_hidden: false }];
+      if (!prev.some(s => s.name === formattedName)) {
+        return [...prev, { id: String(Date.now()), name: formattedName, is_hidden: false }];
       }
       return prev;
     });
-  }, []);
+    if (!store.selectedSubject) {
+      store.setSelectedSubject(formattedName);
+      persistPref(PREF_SELECTED, formattedName);
+    }
+  }, [store.selectedSubject, persistPref]);
 
   const hideSubject = useCallback(async (name: string) => {
     setSubjects(prev => prev.map(s => s.name === name ? { ...s, is_hidden: true } : s));
@@ -197,7 +214,7 @@ export function usePomodoroTimer(userId: string | null) {
   const selectSubject = useCallback((name: string) => {
     store.setSelectedSubject(name);
     persistPref(PREF_SELECTED, name);
-  }, [store]);
+  }, [store, persistPref]);
 
   const saveChunk = useCallback(async () => {
     const subject = trackingSubjectRef.current;
@@ -286,11 +303,22 @@ export function usePomodoroTimer(userId: string | null) {
   }, [store.timeLeft, store.isRunning, store.isPaused, store.currentPhase, store.currentCycle, focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks, flushUnsaved, cancelTimerNotification, scheduleTimerNotification]);
 
   const handleStart = useCallback(() => {
-    if (!store.selectedSubject) return;
+    let subject = store.selectedSubject;
+    if (!subject) {
+      const firstVisible = subjects.find(s => !s.is_hidden);
+      if (firstVisible) {
+        subject = firstVisible.name;
+        store.setSelectedSubject(subject);
+        persistPref(PREF_SELECTED, subject);
+      } else {
+        Alert.alert('No Subject Selected', 'Please add or select a subject to start the timer.');
+        return;
+      }
+    }
 
     const isResuming = pauseStartRef.current > 0;
     if (!isResuming) {
-      trackingSubjectRef.current = store.selectedSubject;
+      trackingSubjectRef.current = subject;
       sessionStartRef.current = Date.now();
       lastSavedSecondsRef.current = 0;
       totalPausedMsRef.current = 0;
@@ -304,7 +332,7 @@ export function usePomodoroTimer(userId: string | null) {
     store.setIsRunning(true);
     store.setIsPaused(false);
     scheduleTimerNotification(store.currentPhase, store.timeLeft);
-  }, [store, scheduleTimerNotification]);
+  }, [store, subjects, persistPref, scheduleTimerNotification]);
 
   const handlePause = useCallback(() => {
     if (!store.isRunning) return;

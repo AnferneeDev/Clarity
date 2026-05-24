@@ -20,8 +20,8 @@ export default function TabBar({ activeTab, onTabPress }: TabBarProps) {
 
   return (
     <View
-      className="flex-row bg-[#0a0810] border-t border-gray-800"
-      style={{ paddingBottom: insets.bottom }}
+      className="flex-row bg-[#0a0810] border-t border-gray-800 relative"
+      style={{ paddingBottom: insets.bottom, zIndex: 10, position: 'relative' }}
     >
       {TABS.map(tab => {
         const isActive = activeTab === tab.key;

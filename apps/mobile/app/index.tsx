@@ -38,7 +38,7 @@ export default function AppIndex() {
     <View className="flex-1 bg-black" style={{ paddingTop: insets.top }}>
       <StatusBar style="light" />
 
-      <View className="flex-1">
+      <View className="flex-1 relative">
         {/* Timer always mounted — grid stacking pattern */}
         <View
           className="absolute inset-0"

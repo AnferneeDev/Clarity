@@ -184,19 +184,37 @@ export function usePomodoroTimer() {
 
   // Wall-clock countdown (accurate even when tab is backgrounded)
   useEffect(() => {
-    if (!store.isRunning || store.isPaused) {
-      if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
-      return;
-    }
-    countdownRef.current = setInterval(() => {
+    if (!store.isRunning || store.isPaused) return;
+
+    // Web worker blob for unthrottled background ticking
+    const workerCode = `
+      let interval;
+      self.onmessage = function(e) {
+        if (e.data === 'start') {
+          interval = setInterval(() => self.postMessage('tick'), 250);
+        } else if (e.data === 'stop') {
+          clearInterval(interval);
+        }
+      };
+    `;
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    const workerUrl = URL.createObjectURL(blob);
+    const worker = new Worker(workerUrl);
+
+    worker.onmessage = () => {
       const remaining = Math.max(0, Math.ceil((phaseEndRef.current - Date.now()) / 1000));
-      if (remaining !== store.timeLeft) {
-        console.log('[Timer] countdown tick: timeLeft', store.timeLeft, '→', remaining, '| phaseEnd:', phaseEndRef.current, 'now:', Date.now());
-      }
       store.setTimeLeft(remaining);
-    }, 250);
-    return () => { if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; } };
-  }, [store.isRunning, store.isPaused, store.timeLeft]);
+    };
+
+    worker.postMessage('start');
+
+    return () => {
+      worker.postMessage('stop');
+      worker.terminate();
+      URL.revokeObjectURL(workerUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.isRunning, store.isPaused]);
 
   // Timer completion
   useEffect(() => {

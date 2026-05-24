@@ -6,6 +6,7 @@ import {
   replaceTasks, getTasks, removeSyncedTask, markTaskSynced,
   replaceNotes, getNotes, removeSyncedNote, markNoteSynced,
   setPreference,
+  getDb,
 } from './db';
 
 async function isOnline(): Promise<boolean> {
@@ -17,6 +18,10 @@ async function isOnline(): Promise<boolean> {
 }
 
 export async function fullSync(userId: string) {
+  if (!userId) {
+    if (__DEV__) console.warn('[Sync] Cannot sync: userId is empty');
+    return;
+  }
   if (!(await isOnline())) {
     if (__DEV__) console.log('[Sync] Offline — skipping full sync');
     return;
@@ -95,81 +100,128 @@ async function pullPreferences(userId: string) {
 }
 
 export async function pushPendingSessions(userId: string) {
+  if (!userId) return;
+  let sessions: any[] = [];
   try {
-    const sessions = await getUnsyncedSessions(userId);
-    for (const s of sessions) {
-      await api.timer.saveSession(s.subject_name, s.date, s.minutes);
+    sessions = await getUnsyncedSessions(userId);
+  } catch (e) {
+    if (__DEV__) console.error('[Sync] Push sessions failed (read):', e);
+    return;
+  }
+  if (__DEV__) console.log(`[Sync] Unsynced sessions to push: ${sessions.length}`);
+  for (const s of sessions) {
+    try {
+      if (__DEV__) console.log(`[Sync] Pushing session to server: subject=${s.subject_name}, date=${s.date}, minutes=${s.minutes}`);
+      const res = await api.timer.saveSession(s.subject_name, s.date, s.minutes);
+      if (__DEV__) console.log(`[Sync] Push session response:`, res);
       await markSessionsSynced(userId, s.subject_name, s.date);
+      if (__DEV__) console.log(`[Sync] Session marked synced locally: ${s.subject_name} ${s.date} ${s.minutes}min`);
+    } catch (e) {
+      if (__DEV__) console.error(`[Sync] Push sessions failed (write ${s.subject_name}):`, e);
     }
-    if (__DEV__ && sessions.length > 0) console.log('[Sync] Sessions pushed:', sessions.length);
-  } catch (e) { if (__DEV__) console.error('[Sync] Push sessions failed:', e); }
+  }
 }
 
 export async function pushPendingTasks(userId: string) {
+  if (!userId) return;
+  let all: any[] = [];
+  let pendingDelete: { id: number }[] = [];
   try {
-    const all = await getTasks(userId);
-    // Also fetch rows pending delete (which are excluded from the UI query)
-    const { openDatabaseAsync } = await import('expo-sqlite');
-    const db = await openDatabaseAsync('clarity.db');
-    const pendingDelete = await db.getAllAsync<{ id: number }>(
+    all = await getTasks(userId);
+    const db = await getDb();
+    pendingDelete = await db.getAllAsync<{ id: number }>(
       "SELECT id FROM tasks WHERE user_id = ? AND pending_action = 'delete'",
       [userId]
     );
+  } catch (e) {
+    if (__DEV__) console.error('[Sync] Push tasks failed (read):', e);
+    return;
+  }
 
-    // Handle creates and updates from the UI-visible set
-    for (const t of all) {
-      if (t.synced || !t.pending_action) continue;
+  for (const t of all) {
+    if (t.synced || !t.pending_action) continue;
+    try {
       if (t.pending_action === 'create') {
-        // Push to server; then remove local temp row (real ID comes back via pull)
-        await api.tasks.add({ text: t.text, starred: !!t.starred, due_date: t.due_date || undefined });
+        if (__DEV__) console.log(`[Sync] Pushing new task to server: text=${t.text}, starred=${t.starred}`);
+        const res = await api.tasks.add({ text: t.text, starred: !!t.starred, due_date: t.due_date || undefined });
+        if (__DEV__) console.log(`[Sync] Push new task response:`, res);
         await removeSyncedTask(t.id);
         if (__DEV__) console.log('[Sync] Task created on server, temp local row removed');
       } else if (t.pending_action === 'update') {
-        await api.tasks.update(t.id, { text: t.text, done: !!t.done, starred: !!t.starred, due_date: t.due_date || null });
+        if (__DEV__) console.log(`[Sync] Pushing task update to server: id=${t.id}, text=${t.text}, done=${t.done}`);
+        const res = await api.tasks.update(t.id, { text: t.text, done: !!t.done, starred: !!t.starred, due_date: t.due_date || null });
+        if (__DEV__) console.log(`[Sync] Push task update response:`, res);
         await markTaskSynced(t.id);
       }
+    } catch (e) {
+      if (__DEV__) console.error(`[Sync] Push tasks failed (write task ${t.id}):`, e);
     }
+  }
 
-    // Handle deletes
-    for (const t of pendingDelete) {
-      await api.tasks.delete(t.id);
+  for (const t of pendingDelete) {
+    try {
+      if (__DEV__) console.log(`[Sync] Pushing task delete to server: id=${t.id}`);
+      const res = await api.tasks.delete(t.id);
+      if (__DEV__) console.log(`[Sync] Push task delete response:`, res);
       await removeSyncedTask(t.id);
+    } catch (e) {
+      if (__DEV__) console.error(`[Sync] Push tasks failed (delete task ${t.id}):`, e);
     }
-  } catch (e) { if (__DEV__) console.error('[Sync] Push tasks failed:', e); }
+  }
 }
 
 export async function pushPendingNotes(userId: string) {
+  if (!userId) return;
+  let all: any[] = [];
+  let pendingDelete: { id: number }[] = [];
   try {
-    const all = await getNotes(userId);
-    const { openDatabaseAsync } = await import('expo-sqlite');
-    const db = await openDatabaseAsync('clarity.db');
-    const pendingDelete = await db.getAllAsync<{ id: number }>(
+    all = await getNotes(userId);
+    const db = await getDb();
+    pendingDelete = await db.getAllAsync<{ id: number }>(
       "SELECT id FROM notes WHERE user_id = ? AND pending_action = 'delete'",
       [userId]
     );
+  } catch (e) {
+    if (__DEV__) console.error('[Sync] Push notes failed (read):', e);
+    return;
+  }
 
-    for (const n of all) {
-      if (n.synced || !n.pending_action) continue;
+  for (const n of all) {
+    if (n.synced || !n.pending_action) continue;
+    try {
       if (n.pending_action === 'create') {
-        await api.notes.add({ title: n.title, content: n.content, color: n.color });
+        if (__DEV__) console.log(`[Sync] Pushing new note to server: title=${n.title}`);
+        const res = await api.notes.add({ title: n.title, content: n.content, color: n.color });
+        if (__DEV__) console.log(`[Sync] Push new note response:`, res);
         await removeSyncedNote(n.id);
         if (__DEV__) console.log('[Sync] Note created on server, temp local row removed');
       } else if (n.pending_action === 'update') {
-        await api.notes.update(n.id, { title: n.title, content: n.content, color: n.color });
+        if (__DEV__) console.log(`[Sync] Pushing note update to server: id=${n.id}, title=${n.title}`);
+        const res = await api.notes.update(n.id, { title: n.title, content: n.content, color: n.color });
+        if (__DEV__) console.log(`[Sync] Push note update response:`, res);
         await markNoteSynced(n.id);
       }
+    } catch (e) {
+      if (__DEV__) console.error(`[Sync] Push notes failed (write note ${n.id}):`, e);
     }
+  }
 
-    for (const n of pendingDelete) {
-      await api.notes.delete(n.id);
+  for (const n of pendingDelete) {
+    try {
+      if (__DEV__) console.log(`[Sync] Pushing note delete to server: id=${n.id}`);
+      const res = await api.notes.delete(n.id);
+      if (__DEV__) console.log(`[Sync] Push note delete response:`, res);
       await removeSyncedNote(n.id);
+    } catch (e) {
+      if (__DEV__) console.error(`[Sync] Push notes failed (delete note ${n.id}):`, e);
     }
-  } catch (e) { if (__DEV__) console.error('[Sync] Push notes failed:', e); }
+  }
 }
 
 let syncInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startBackgroundSync(userId: string) {
+  if (!userId) return;
   if (syncInterval) return;
   syncInterval = setInterval(async () => {
     try {

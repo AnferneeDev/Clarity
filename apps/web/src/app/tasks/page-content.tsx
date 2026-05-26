@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Calendar as CalendarIcon, Clock, Plus, Star, Trash2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,13 +21,15 @@ export default function TasksPageContent() {
   const [editingDueFor, setEditingDueFor] = useState<number | null>(null);
   const [editingDueValue, setEditingDueValue] = useState<Date | null>(null);
 
-  const sorted = [...tasks].sort((a, b) => {
-    if (a.starred && !b.starred) return -1;
-    if (!a.starred && b.starred) return 1;
-    if (a.done && !b.done) return 1;
-    if (!a.done && b.done) return -1;
-    return 0;
-  });
+  const sorted = useMemo(() => {
+    return [...tasks].sort((a, b) => {
+      if (a.starred && !b.starred) return -1;
+      if (!a.starred && b.starred) return 1;
+      if (a.done && !b.done) return 1;
+      if (!a.done && b.done) return -1;
+      return 0;
+    });
+  }, [tasks]);
 
   const handleAdd = async () => { if (!newText.trim()) return; await addTask(newText, false); setNewText(''); };
   const saveDueDate = async () => { if (editingDueFor === null) return; await updateTask(editingDueFor, { due_date: editingDueValue?.toISOString() ?? null }); setEditingDueFor(null); setEditingDueValue(null); };

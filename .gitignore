@@ -33,3 +33,6 @@ apps/mobile/dist/
 # Next.js
 apps/web/.next/
 design.md
+
+# Temporary Local Skills and Guidelines
+tmp/

@@ -4,6 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Play, Pause, X } from 'lucide-react';
 import { pad2 } from '../../lib/utils';
 
+const TOTAL_DOTS = 60;
+const DOT_COORDINATES = Array.from({ length: TOTAL_DOTS }).map((_, i) => {
+  const angle = (i / TOTAL_DOTS) * -360;
+  const rad = (angle * Math.PI) / 180;
+  const dotRadius = 44;
+  return {
+    x: 50 + dotRadius * Math.cos(rad),
+    y: 50 + dotRadius * Math.sin(rad),
+  };
+});
+
 type TimerPhase = 'focus' | 'short' | 'long';
 
 const FOCUS_COLOR = '239 68 68';
@@ -126,23 +137,16 @@ export default function TimerDisplay({
             <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--timer-circle-bg)" strokeWidth="0.8" />
 
             {/* 60 dot indicators */}
-            {Array.from({ length: totalDots }).map((_, i) => {
-              const angle = (i / totalDots) * -360;
-              const rad = (angle * Math.PI) / 180;
-              const dotRadius = 44;
-              const x = 50 + dotRadius * Math.cos(rad);
-              const y = 50 + dotRadius * Math.sin(rad);
-              return (
-                <circle
-                  key={i}
-                  cx={x}
-                  cy={y}
-                  r="1.5"
-                  fill={i < remainingDots ? 'white' : 'transparent'}
-                  opacity={i < remainingDots ? 0.8 : 0}
-                />
-              );
-            })}
+            {DOT_COORDINATES.map((coord, i) => (
+              <circle
+                key={i}
+                cx={coord.x}
+                cy={coord.y}
+                r="1.5"
+                fill={i < remainingDots ? 'white' : 'transparent'}
+                opacity={i < remainingDots ? 0.8 : 0}
+              />
+            ))}
 
             {/* Progress ring */}
             <circle

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,7 +62,7 @@ const longBreakOptions = [
 const activeClass = 'bg-[rgb(var(--accent-primary-rgb))] text-white border-[rgb(var(--accent-primary-rgb))] hover:brightness-110';
 const inactiveClass = 'bg-gray-400/80 text-white/90 border-gray-700/50 hover:bg-[rgb(var(--accent-primary-rgb))]/50';
 
-export default function SubjectPicker({
+const SubjectPicker = memo(function SubjectPicker({
   subjects,
   selectedSubject,
   focusMinutes,
@@ -253,4 +253,6 @@ export default function SubjectPicker({
       </Dialog>
     </Card>
   );
-}
+});
+
+export default SubjectPicker;

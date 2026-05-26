@@ -6,11 +6,13 @@ import { useBackground } from '@/hooks/useBackground';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import SidebarNav from '@/components/sidebar/SidebarNav';
 import LoginView from '@/components/auth/LoginView';
-import TimerView from '@/app/timer/page-content';
-import StatsView from '@/app/stats/page-content';
-import TasksView from '@/app/tasks/page-content';
-import NotesView from '@/app/notes/page-content';
-import SettingsView from '@/app/settings/page-content';
+import dynamic from 'next/dynamic';
+
+const TimerView = dynamic(() => import('@/app/timer/page-content'), { ssr: false });
+const StatsView = dynamic(() => import('@/app/stats/page-content'), { ssr: false });
+const TasksView = dynamic(() => import('@/app/tasks/page-content'), { ssr: false });
+const NotesView = dynamic(() => import('@/app/notes/page-content'), { ssr: false });
+const SettingsView = dynamic(() => import('@/app/settings/page-content'), { ssr: false });
 
 function AppContent() {
   const { user, isLoading } = useAuth();
@@ -25,12 +27,11 @@ function AppContent() {
     return <LoginView />;
   }
 
-  const viewMap: Record<string, React.ReactNode> = {
-    timer: <TimerView />,
-    stats: <StatsView />,
-    tasks: <TasksView />,
-    notes: <NotesView />,
-    settings: <SettingsView />,
+  const viewMap: Record<string, React.ComponentType<any>> = {
+    stats: StatsView,
+    tasks: TasksView,
+    notes: NotesView,
+    settings: SettingsView,
   };
 
   return (
@@ -68,7 +69,10 @@ function AppContent() {
                 }}
                 aria-hidden={activeTab === 'timer'}
               >
-                {!['timer'].includes(activeTab) && viewMap[activeTab]}
+                {activeTab !== 'timer' && (() => {
+                  const Comp = viewMap[activeTab];
+                  return Comp ? <Comp /> : null;
+                })()}
               </div>
             </div>
           </section>

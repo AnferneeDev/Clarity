@@ -67,8 +67,13 @@ export default function StatsPageContent() {
   useEffect(() => { loadAllData(); }, [loadAllData]);
   useEffect(() => { if (typeof window !== 'undefined') localStorage.setItem(LS_HIDDEN, JSON.stringify([...hiddenSubjects])); }, [hiddenSubjects]);
 
-  const visibleSubjectTotals = subjectTotals.filter(s => !hiddenSubjects.has(s.subject));
-  const totalMinutes = visibleSubjectTotals.reduce((s, r) => s + r.total_minutes, 0);
+  const visibleSubjectTotals = useMemo(() => {
+    return subjectTotals.filter(s => !hiddenSubjects.has(s.subject));
+  }, [subjectTotals, hiddenSubjects]);
+
+  const totalMinutes = useMemo(() => {
+    return visibleSubjectTotals.reduce((s, r) => s + r.total_minutes, 0);
+  }, [visibleSubjectTotals]);
 
   const pivotData = useMemo(() => {
     if (dateFilter === 'day') return null;

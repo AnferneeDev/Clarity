@@ -7,8 +7,19 @@ import { Input } from '@/components/ui/input';
 import { useNotes } from '@/hooks/useNotes';
 
 function useDebounce(callback: (...args: any[]) => void, delay: number) {
+  const callbackRef = useRef(callback);
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
+
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  return useCallback((...args: any[]) => { if (timeoutRef.current) clearTimeout(timeoutRef.current); timeoutRef.current = setTimeout(() => callback(...args), delay); }, [callback, delay]);
+
+  return useCallback((...args: any[]) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      callbackRef.current(...args);
+    }, delay);
+  }, [delay]);
 }
 
 export default function NotesPageContent() {
@@ -18,12 +29,46 @@ export default function NotesPageContent() {
   const [openPickerFor, setOpenPickerFor] = useState<number | null>(null);
   const pickerRef = useRef<HTMLDivElement | null>(null);
 
+  const [localTitle, setLocalTitle] = useState('');
+  const [localContent, setLocalContent] = useState('');
+  const lastActiveNoteIdRef = useRef<number | null>(null);
+
   useEffect(() => { if (notes.length > 0 && (!activeNoteId || !notes.find(n => n.id === activeNoteId))) setActiveNoteId(notes[0].id); }, [notes, activeNoteId]);
   useEffect(() => { function onMouseDown(e: MouseEvent) { if (!pickerRef.current?.contains(e.target as Node)) setOpenPickerFor(null); } if (openPickerFor !== null) { document.addEventListener('mousedown', onMouseDown); return () => document.removeEventListener('mousedown', onMouseDown); } }, [openPickerFor]);
 
   const activeNote = notes.find(n => n.id === activeNoteId) ?? null;
+
+  // Sync local state when active note changes
+  useEffect(() => {
+    if (activeNote) {
+      if (lastActiveNoteIdRef.current !== activeNote.id) {
+        setLocalTitle(activeNote.title);
+        setLocalContent(activeNote.content);
+        lastActiveNoteIdRef.current = activeNote.id;
+      }
+    } else {
+      setLocalTitle('');
+      setLocalContent('');
+      lastActiveNoteIdRef.current = null;
+    }
+  }, [activeNote]);
+
   const debouncedContent = useDebounce((id: number, content: string) => updateNote(id, { content }), 500);
   const debouncedTitle = useDebounce((id: number, title: string) => updateNote(id, { title }), 500);
+
+  const handleTitleChange = (val: string) => {
+    setLocalTitle(val);
+    if (activeNote) {
+      debouncedTitle(activeNote.id, val);
+    }
+  };
+
+  const handleContentChange = (val: string) => {
+    setLocalContent(val);
+    if (activeNote) {
+      debouncedContent(activeNote.id, val);
+    }
+  };
 
   const handleAdd = async () => { const t = newTitle.trim() || 'New Note'; await addNote(t, '', '#fef08a'); setNewTitle(''); };
 
@@ -46,14 +91,14 @@ export default function NotesPageContent() {
           <div className="bg-gray-900/40 border border-gray-700/50 rounded-2xl p-4 flex flex-col h-full overflow-hidden">
             <div className="flex flex-col gap-4 h-full">
               <div className="bg-gray-700 rounded-xl px-4 py-4 flex items-center justify-between border border-gray-800">
-                <input value={activeNote?.title || ''} onChange={e => activeNote && debouncedTitle(activeNote.id, e.target.value)} className="w-full bg-transparent outline-none text-2xl font-bold text-white" placeholder="Note title" style={{ fontFamily: 'Segoe UI, system-ui, sans-serif' }} disabled={!activeNote} />
+                <input value={localTitle} onChange={e => handleTitleChange(e.target.value)} className="w-full bg-transparent outline-none text-2xl font-bold text-white" placeholder="Note title" style={{ fontFamily: 'Segoe UI, system-ui, sans-serif' }} disabled={!activeNote} />
                 <div className="relative ml-4">
                   <button onClick={() => { if (!activeNote) return; setOpenPickerFor(prev => prev === activeNote.id ? null : activeNote.id); }} className="h-8 w-8 rounded-md border border-gray-700 flex items-center justify-center" style={{ backgroundColor: activeNote?.color || '#fef08a' }} disabled={!activeNote} />
                   {openPickerFor === activeNote?.id && (<div ref={pickerRef} onClick={e => e.stopPropagation()} className="absolute right-0 mt-3 w-40 p-2 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50"><div className="flex items-center gap-3"><input type="color" value={activeNote?.color || '#fef08a'} onChange={e => activeNote && updateNote(activeNote.id, { color: e.target.value })} className="h-10 w-10 p-0 border-0 bg-transparent" /><Button size="sm" onClick={() => setOpenPickerFor(null)}>Done</Button></div></div>)}
                 </div>
               </div>
               <div className="bg-gray-700 rounded-xl p-3 flex-1 min-h-0 border border-gray-800">
-                {activeNote ? (<textarea value={activeNote.content} onChange={e => debouncedContent(activeNote.id, e.target.value)} placeholder="Write your note..." className="w-full h-full resize-none text-white text-base outline-none bg-transparent min-h-0 whitespace-pre-wrap break-words" />) : (<div className="text-gray-500 m-auto">Select or create a note</div>)}
+                {activeNote ? (<textarea value={localContent} onChange={e => handleContentChange(e.target.value)} placeholder="Write your note..." className="w-full h-full resize-none text-white text-base outline-none bg-transparent min-h-0 whitespace-pre-wrap break-words" />) : (<div className="text-gray-500 m-auto">Select or create a note</div>)}
               </div>
             </div>
           </div>

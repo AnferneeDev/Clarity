@@ -1,13 +1,16 @@
+import { LS_AUTH_TOKEN } from '@/lib/constants';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 async function request(path: string, options: RequestInit = {}) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('clarity_token') : null;
+  const token = typeof window !== 'undefined' ? localStorage.getItem(LS_AUTH_TOKEN) : null;
   const url = `${API_BASE}${path}`;
 
-  console.log(`[API] → ${options.method || 'GET'} ${url}`, {
-    hasToken: !!token,
-    body: options.body ? JSON.parse(options.body as string) : undefined,
-  });
+  if (isDev) {
+    console.log(`[API] → ${options.method || 'GET'} ${url}`);
+  }
 
   const res = await fetch(url, {
     ...options,
@@ -19,15 +22,15 @@ async function request(path: string, options: RequestInit = {}) {
   });
 
   const text = await res.text();
-  let data: any;
+  let data: unknown;
   try { data = JSON.parse(text); } catch { data = { raw: text }; }
 
   if (!res.ok) {
-    console.error(`[API] ← ${res.status} ${path}`, data);
-    throw new Error(data.error || data.raw || res.statusText);
+    if (isDev) console.error(`[API] ← ${res.status} ${path}`, data);
+    const err = data as Record<string, string>;
+    throw new Error(err?.error || err?.raw || res.statusText);
   }
 
-  console.log(`[API] ← ${res.status} ${path}`, Array.isArray(data) ? `${data.length} items` : typeof data === 'object' ? Object.keys(data).join(', ') : data);
   return data;
 }
 
@@ -49,12 +52,6 @@ export const api = {
     },
     getSubjects: () =>
       request('/timer/subjects'),
-    getDailyAggregate: (start?: string, end?: string) => {
-      const params = new URLSearchParams();
-      if (start) params.set('start', start);
-      if (end) params.set('end', end);
-      return request(`/timer/stats?${params}`);
-    },
     getSubjectDateAggregated: (start?: string, end?: string) => {
       const params = new URLSearchParams();
       if (start) params.set('start', start);

@@ -115,6 +115,9 @@ export default function StatsView() {
 
   useEffect(() => {
     loadAllData();
+    const handleFocus = () => loadAllData();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [loadAllData]);
 
   // Persist hidden subjects

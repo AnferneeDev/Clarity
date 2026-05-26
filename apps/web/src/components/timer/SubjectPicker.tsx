@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,11 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Plus, X } from 'lucide-react';
 
-interface Subject {
-  id: string;
-  name: string;
-  is_hidden: boolean;
-}
+import type { Subject } from '@/lib/types';
 
 interface SubjectPickerProps {
   subjects: Subject[];
@@ -84,7 +80,7 @@ const SubjectPicker = memo(function SubjectPicker({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newSubject, setNewSubject] = useState('');
 
-  const visibleSubjects = subjects.filter(s => !s.is_hidden);
+  const visibleSubjects = useMemo(() => subjects.filter(s => !s.is_hidden), [subjects]);
 
   function isActive(a: number, b: number) {
     return Math.abs((a || 0) - (b || 0)) < 0.001;

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, X } from 'lucide-react';
@@ -55,20 +55,19 @@ export default function TimerDisplay({
   onSwitchPhase,
   className,
 }: TimerDisplayProps) {
-  // Set accent color CSS variable
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Update the global accent color so the whole app (sidebar, buttons, etc.)
+  // reflects the current timer phase. No cleanup return — we intentionally
+  // keep the color when navigating away, and the brief FOCUS_COLOR flash
+  // that the old cleanup caused is gone.
   useEffect(() => {
     let color = FOCUS_COLOR;
-    if (isPaused) {
-      color = PAUSED_COLOR;
-    } else if (currentPhase === 'short') {
-      color = SHORT_BREAK_COLOR;
-    } else if (currentPhase === 'long') {
-      color = LONG_BREAK_COLOR;
-    }
+    if (isPaused) color = PAUSED_COLOR;
+    else if (currentPhase === 'short') color = SHORT_BREAK_COLOR;
+    else if (currentPhase === 'long') color = LONG_BREAK_COLOR;
     document.documentElement.style.setProperty('--accent-primary-rgb', color);
-    return () => {
-      document.documentElement.style.setProperty('--accent-primary-rgb', FOCUS_COLOR);
-    };
+    const el = cardRef.current;
+    if (el) el.style.setProperty('--accent-primary-rgb', color);
   }, [currentPhase, isPaused]);
 
   const radius = 48;
@@ -98,7 +97,7 @@ export default function TimerDisplay({
   };
 
   return (
-    <Card className={`glass-card shadow-xl border border-glass-border ${className || ''}`}>
+    <Card ref={cardRef} className={`glass-card shadow-xl border border-glass-border ${className || ''}`} style={{ '--accent-primary-rgb': FOCUS_COLOR } as React.CSSProperties}>
       <CardContent className="flex flex-col items-center space-y-2 pt-1">
         <div className="text-center mb-2">
           <h2 className="text-2xl font-bold text-white tracking-tight">Pomodoro Timer</h2>

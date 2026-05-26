@@ -18,8 +18,10 @@ CREATE TABLE IF NOT EXISTS app.profiles (
 
 ALTER TABLE app.profiles ENABLE ROW LEVEL SECURITY;
 
+-- [SECURITY FIX] Was USING (true) — any anon could enumerate all usernames.
+-- Now scoped to the authenticated user's own row only.
 CREATE POLICY "profiles_select" ON app.profiles
-  FOR SELECT USING (true);
+  FOR SELECT USING (auth.uid() = id);
 
 CREATE POLICY "profiles_insert" ON app.profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
@@ -191,12 +193,33 @@ CREATE POLICY "preferences_update" ON app.user_preferences
 
 -- ============================================
 -- Trigger: auto-create profile + preferences on signup
+-- [SECURITY FIX] Collision-resistant username generation —
+-- retries up to 5 times appending a random 4-digit suffix.
 -- ============================================
 CREATE OR REPLACE FUNCTION app.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  base_username TEXT;
+  final_username TEXT;
+  attempt INT := 0;
 BEGIN
-  INSERT INTO app.profiles (id, username)
-  VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1)));
+  base_username := COALESCE(
+    NEW.raw_user_meta_data->>'username',
+    split_part(NEW.email, '@', 1)
+  );
+  final_username := base_username;
+
+  LOOP
+    BEGIN
+      INSERT INTO app.profiles (id, username)
+      VALUES (NEW.id, final_username);
+      EXIT; -- success, leave loop
+    EXCEPTION WHEN unique_violation THEN
+      attempt := attempt + 1;
+      final_username := base_username || '_' || floor(random() * 9000 + 1000)::TEXT;
+      IF attempt > 5 THEN RAISE; END IF;
+    END;
+  END LOOP;
 
   INSERT INTO app.user_preferences (user_id)
   VALUES (NEW.id);
@@ -212,33 +235,53 @@ CREATE TRIGGER on_auth_user_created
 
 -- ============================================
 -- Grants & Permissions
+-- [SECURITY FIX] Was GRANT ALL TO anon — now scoped to minimum required.
+-- anon:          SELECT on profiles only (needed for public avatar lookup)
+-- authenticated: full DML on their own rows (RLS enforces user_id ownership)
 -- ============================================
 GRANT USAGE ON SCHEMA app TO anon, authenticated;
 
-GRANT ALL ON ALL TABLES IN SCHEMA app TO anon, authenticated;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA app TO anon, authenticated;
-GRANT ALL ON ALL FUNCTIONS IN SCHEMA app TO anon, authenticated;
+-- anon can only read profiles (e.g. username for display)
+GRANT SELECT ON app.profiles TO anon;
 
-ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT ALL ON TABLES TO anon, authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT ALL ON SEQUENCES TO anon, authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT ALL ON FUNCTIONS TO anon, authenticated;
+-- authenticated users get full DML — RLS policies enforce row ownership
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA app TO authenticated;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO authenticated;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA app TO authenticated;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT USAGE, SELECT ON SEQUENCES TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA app GRANT EXECUTE ON FUNCTIONS TO authenticated;
 
 -- ============================================
 -- RPC: Atomic session upsert
--- Updated: tracks updated_at for offline sync detection
+-- [SECURITY FIX] Removed p_user_id parameter — was IDOR vulnerability.
+-- Now uses auth.uid() internally so callers cannot write to other users' sessions.
 -- ============================================
 CREATE OR REPLACE FUNCTION app.upsert_session(
-  p_user_id UUID,
   p_subject_name TEXT,
   p_date DATE,
   p_minutes REAL
 ) RETURNS VOID AS $$
 BEGIN
   INSERT INTO app.sessions (user_id, subject_name, date, minutes)
-  VALUES (p_user_id, p_subject_name, p_date, p_minutes)
+  VALUES (auth.uid(), p_subject_name, p_date, p_minutes)
   ON CONFLICT (user_id, subject_name, date)
   DO UPDATE SET
     minutes = app.sessions.minutes + EXCLUDED.minutes,
     updated_at = now();
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
+-- IMPORTANT: If you have an existing Supabase project, run these
+-- ALTER statements to apply the security fixes to live policies:
+-- ============================================
+
+-- Fix profiles_select (was USING (true)):
+-- DROP POLICY IF EXISTS "profiles_select" ON app.profiles;
+-- CREATE POLICY "profiles_select" ON app.profiles FOR SELECT USING (auth.uid() = id);
+
+-- Revoke over-broad anon grants:
+-- REVOKE ALL ON ALL TABLES IN SCHEMA app FROM anon;
+-- GRANT SELECT ON app.profiles TO anon;

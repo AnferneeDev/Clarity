@@ -1,26 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNotes } from '@/hooks/useNotes';
+import { useDebounce } from '@/hooks/useDebounce';
 
-function useDebounce(callback: (...args: any[]) => void, delay: number) {
-  const callbackRef = useRef(callback);
-  useEffect(() => {
-    callbackRef.current = callback;
-  }, [callback]);
-
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  return useCallback((...args: any[]) => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      callbackRef.current(...args);
-    }, delay);
-  }, [delay]);
-}
 
 export default function NotesPageContent() {
   const { notes, addNote, updateNote, deleteNote } = useNotes();

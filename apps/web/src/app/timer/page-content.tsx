@@ -4,11 +4,26 @@ import { usePomodoroTimer } from '@/hooks/usePomodoroTimer';
 import TimerDisplay from '@/components/timer/TimerDisplay';
 import SubjectPicker from '@/components/timer/SubjectPicker';
 
+// Skeleton that matches the two-column layout shape so the view
+// doesn't replace its entire structure while subjects are loading.
+function TimerSkeleton() {
+  return (
+    <div className="h-full flex flex-col p-2 mt-6">
+      <div className="flex-1 grid md:grid-cols-2 gap-6 animate-pulse">
+        {/* Left card placeholder */}
+        <div className="glass-card shadow-xl border border-glass-border rounded-2xl" />
+        {/* Right card placeholder */}
+        <div className="glass-card shadow-lg border border-glass-border rounded-2xl" />
+      </div>
+    </div>
+  );
+}
+
 export default function TimerPageContent() {
   const timer = usePomodoroTimer();
 
   if (timer.isLoading) {
-    return <div className="h-full flex items-center justify-center text-white text-sm">Loading timer...</div>;
+    return <TimerSkeleton />;
   }
 
   return (

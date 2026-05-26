@@ -2,21 +2,33 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getLocalDateString } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { useTimerStore } from '@/lib/store';
+import type { TimerPhase, Subject } from '@/lib/types';
 
-type TimerPhase = 'focus' | 'short' | 'long';
-
-const LS_FOCUS = 'clarity_v3:focus_minutes';
-const LS_SHORT = 'clarity_v3:short_break_minutes';
-const LS_LONG = 'clarity_v3:long_break_minutes';
+// ── localStorage keys ─────────────────────────────────────────────────────────
+const LS_FOCUS    = 'clarity_v3:focus_minutes';
+const LS_SHORT    = 'clarity_v3:short_break_minutes';
+const LS_LONG     = 'clarity_v3:long_break_minutes';
 const LS_ALLOW_LONG = 'clarity_v3:allow_long_timers';
 const LS_AUTO_START = 'clarity_v3:auto_start_breaks';
 const LS_SELECTED = 'clarity_v3:selected_subject';
 
-const AUTO_SAVE_INTERVAL_MS = 10_000;
-const DEFAULT_CHUNK_SECONDS = 60;
-const PREF_SYNC_DEBOUNCE_MS = 2_000;
-const MIN_SAVE_SECONDS = 10;
+// ── Constants ─────────────────────────────────────────────────────────────────
+const AUTO_SAVE_INTERVAL_MS   = 10_000;
+const DEFAULT_CHUNK_SECONDS   = 60;
+const PREF_SYNC_DEBOUNCE_MS   = 2_000;
+const MIN_SAVE_SECONDS        = 10;
 
+// ── Web Worker (hoisted to module scope to avoid recreating the blob URL) ─────
+const WORKER_BLOB = new Blob([`
+  let interval;
+  self.onmessage = function(e) {
+    if (e.data === 'start') interval = setInterval(() => self.postMessage('tick'), 250);
+    else if (e.data === 'stop') clearInterval(interval);
+  };
+`], { type: 'application/javascript' });
+const WORKER_URL = URL.createObjectURL(WORKER_BLOB);
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function safeLocalNumber(key: string, fallback: number): number {
   try {
     const raw = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
@@ -38,18 +50,10 @@ function playSound() {
   } catch {}
 }
 
-const NOTIFY_PERMISSION_KEY = 'clarity:notify_permission_requested';
 function sendNotification(title: string, body: string) {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    console.warn('[Notify] Notifications not supported in this browser');
-    return;
-  }
-  console.log('[Notify] permission:', Notification.permission);
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
   if (Notification.permission === 'granted') {
     new Notification(title, { body, icon: '/favicon.ico' });
-    console.log('[Notify] fired:', title);
-  } else {
-    console.warn('[Notify] permission not granted, cannot fire:', title);
   }
 }
 
@@ -57,45 +61,57 @@ function requestNotificationPermission() {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   if (Notification.permission === 'default') {
     Notification.requestPermission().catch(() => {});
-    try { localStorage.setItem(NOTIFY_PERMISSION_KEY, '1'); } catch {}
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function usePomodoroTimer() {
   const store = useTimerStore();
 
-  const [focusMinutes, setFocusMinutesState] = useState(() => safeLocalNumber(LS_FOCUS, 25));
+  const [focusMinutes,      setFocusMinutesState]      = useState(() => safeLocalNumber(LS_FOCUS, 25));
   const [shortBreakMinutes, setShortBreakMinutesState] = useState(() => safeLocalNumber(LS_SHORT, 5));
-  const [longBreakMinutes, setLongBreakMinutesState] = useState(() => safeLocalNumber(LS_LONG, 15));
-  const [allowLongTimers, setAllowLongTimersState] = useState(() => typeof window !== 'undefined' && localStorage.getItem(LS_ALLOW_LONG) !== 'false');
-  const [autoStartBreaks, setAutoStartBreaksState] = useState(() => typeof window !== 'undefined' && localStorage.getItem(LS_AUTO_START) === 'true');
+  const [longBreakMinutes,  setLongBreakMinutesState]  = useState(() => safeLocalNumber(LS_LONG, 15));
+  const [allowLongTimers,   setAllowLongTimersState]   = useState(() =>
+    typeof window !== 'undefined' && localStorage.getItem(LS_ALLOW_LONG) !== 'false'
+  );
+  const [autoStartBreaks, setAutoStartBreaksState] = useState(() =>
+    typeof window !== 'undefined' && localStorage.getItem(LS_AUTO_START) === 'true'
+  );
+  const [subjects,   setSubjects]   = useState<Subject[]>([]);
+  const [isLoading,  setIsLoading]  = useState(true);
 
-  const [subjects, setSubjects] = useState<Array<{ id: string; name: string; is_hidden: boolean }>>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const prefSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sessionStartRef = useRef<number>(0);
+  // ── Refs ───────────────────────────────────────────────────────────────────
+  const autoSaveRef       = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prefSyncRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionStartRef   = useRef<number>(0);
   const trackingSubjectRef = useRef<string>('');
-  const todayRef = useRef(getLocalDateString());
+  const todayRef          = useRef(getLocalDateString());
   const lastSavedSecondsRef = useRef(0);
-  const totalPausedMsRef = useRef(0);
-  const pauseStartRef = useRef(0);
-  const phaseEndRef = useRef(0);
+  const totalPausedMsRef  = useRef(0);
+  const pauseStartRef     = useRef(0);
+  const phaseEndRef       = useRef(0);
 
+  // ── Load subjects on mount ─────────────────────────────────────────────────
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       try {
-        const data = await api.timer.getSubjects();
-        setSubjects(Array.isArray(data) ? data.map((s: any) => ({ id: s.id, name: s.name, is_hidden: s.is_hidden })) : []);
-        const selected = typeof window !== 'undefined' ? localStorage.getItem(LS_SELECTED) : null;
-        if (!store.selectedSubject && selected) store.setSelectedSubject(selected);
-      } catch { /* offline / no API */ } finally { setIsLoading(false); }
+        const data = await api.timer.getSubjects() as Subject[];
+        if (cancelled) return;
+        setSubjects(Array.isArray(data) ? data : []);
+        const saved = typeof window !== 'undefined' ? localStorage.getItem(LS_SELECTED) : null;
+        if (!store.selectedSubject && saved) store.setSelectedSubject(saved);
+      } catch { /* offline / no API */ } finally {
+        if (!cancelled) setIsLoading(false);
+      }
     };
     load();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Preference setters (local state + localStorage) ────────────────────────
   const setFocusMinutes = useCallback((v: number) => {
     setFocusMinutesState(v);
     if (typeof window !== 'undefined') localStorage.setItem(LS_FOCUS, String(v));
@@ -124,6 +140,7 @@ export function usePomodoroTimer() {
     }, PREF_SYNC_DEBOUNCE_MS);
   }, []);
 
+  // ── Subject management ─────────────────────────────────────────────────────
   const addSubject = useCallback(async (name: string) => {
     try { await api.timer.addSubject(name); } catch { /* offline */ }
     setSubjects(prev => {
@@ -135,11 +152,15 @@ export function usePomodoroTimer() {
   }, []);
 
   const hideSubject = useCallback(async (name: string) => {
+    // Optimistic update, then persist
     setSubjects(prev => prev.map(s => s.name === name ? { ...s, is_hidden: true } : s));
+    try { await api.timer.hideSubject(name); } catch { /* offline — local change preserved */ }
   }, []);
 
   const deleteSubject = useCallback(async (name: string) => {
+    // Optimistic update, then persist
     setSubjects(prev => prev.filter(s => s.name !== name));
+    try { await api.timer.deleteSubject(name); } catch { /* offline — local change preserved */ }
   }, []);
 
   const selectSubject = useCallback((name: string) => {
@@ -147,7 +168,7 @@ export function usePomodoroTimer() {
     if (typeof window !== 'undefined') localStorage.setItem(LS_SELECTED, name);
   }, [store]);
 
-  // Chunk save helper
+  // ── Session saving ─────────────────────────────────────────────────────────
   const saveChunk = useCallback(async () => {
     const subject = trackingSubjectRef.current;
     if (!subject) return;
@@ -159,20 +180,19 @@ export function usePomodoroTimer() {
     }
   }, []);
 
-  // Flush remaining on pause/stop
   const flushUnsaved = useCallback(async () => {
     const subject = trackingSubjectRef.current;
     if (!subject) return;
     const activeMs = (Date.now() - sessionStartRef.current) - totalPausedMsRef.current;
     const activeSeconds = Math.floor(activeMs / 1000);
     const unsaved = activeSeconds - lastSavedSecondsRef.current;
-    if (unsaved > 2) {
+    if (unsaved > MIN_SAVE_SECONDS) {
       try { await api.timer.saveSession(subject, todayRef.current, unsaved / 60); } catch { }
       lastSavedSecondsRef.current = activeSeconds;
     }
   }, []);
 
-  // Auto-save interval
+  // ── Auto-save interval ─────────────────────────────────────────────────────
   useEffect(() => {
     if (store.isRunning && !store.isPaused && store.currentPhase === 'focus') {
       autoSaveRef.current = setInterval(saveChunk, AUTO_SAVE_INTERVAL_MS);
@@ -182,58 +202,41 @@ export function usePomodoroTimer() {
     return () => { if (autoSaveRef.current) clearInterval(autoSaveRef.current); };
   }, [store.isRunning, store.isPaused, store.currentPhase, saveChunk]);
 
-  // Wall-clock countdown (accurate even when tab is backgrounded)
+  // ── Wall-clock countdown via reused Worker URL ─────────────────────────────
   useEffect(() => {
     if (!store.isRunning || store.isPaused) return;
 
-    // Web worker blob for unthrottled background ticking
-    const workerCode = `
-      let interval;
-      self.onmessage = function(e) {
-        if (e.data === 'start') {
-          interval = setInterval(() => self.postMessage('tick'), 250);
-        } else if (e.data === 'stop') {
-          clearInterval(interval);
-        }
-      };
-    `;
-    const blob = new Blob([workerCode], { type: 'application/javascript' });
-    const workerUrl = URL.createObjectURL(blob);
-    const worker = new Worker(workerUrl);
-
+    const worker = new Worker(WORKER_URL);
     worker.onmessage = () => {
       const remaining = Math.max(0, Math.ceil((phaseEndRef.current - Date.now()) / 1000));
       store.setTimeLeft(remaining);
     };
-
     worker.postMessage('start');
 
     return () => {
       worker.postMessage('stop');
       worker.terminate();
-      URL.revokeObjectURL(workerUrl);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.isRunning, store.isPaused]);
 
-  // Timer completion
+  // ── Timer completion ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!store.isRunning || store.isPaused) return;
     const timerExpired = store.timeLeft <= 0 || (phaseEndRef.current > 0 && Date.now() >= phaseEndRef.current);
     if (!timerExpired) return;
-
-    console.log('[Timer] Phase completed! phase:', store.currentPhase, 'timeLeft:', store.timeLeft);
 
     if (store.currentPhase === 'focus') {
       flushUnsaved();
       lastSavedSecondsRef.current = 0;
       sendNotification('Pomodoro complete', 'Focus session finished. Time for a break!');
       playSound();
-      console.log('[Timer] Focus complete — notification + sound fired');
     } else {
-      sendNotification('Break over', store.currentPhase === 'long' ? 'Long break finished. Time to focus!' : 'Short break finished. Time to focus!');
+      const msg = store.currentPhase === 'long'
+        ? 'Long break finished. Time to focus!'
+        : 'Short break finished. Time to focus!';
+      sendNotification('Break over', msg);
       playSound();
-      console.log('[Timer] Break complete — notification + sound fired');
     }
 
     const nextPhase: TimerPhase = store.currentPhase === 'focus'
@@ -250,12 +253,16 @@ export function usePomodoroTimer() {
     if (nextPhase === 'focus') store.setCurrentCycle(store.currentCycle + 1);
     store.setTimeLeft(newDuration);
 
-    if (autoStartBreaks) setTimeout(() => {
-      phaseEndRef.current = Date.now() + newDuration * 1000;
-      store.setIsRunning(true);
-    }, 500);
-  }, [store.timeLeft, store.isRunning, store.isPaused, store.currentPhase, store.currentCycle, focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks, flushUnsaved, store]);
+    if (autoStartBreaks) {
+      setTimeout(() => {
+        phaseEndRef.current = Date.now() + newDuration * 1000;
+        store.setIsRunning(true);
+      }, 500);
+    }
+  }, [store.timeLeft, store.isRunning, store.isPaused, store.currentPhase, store.currentCycle,
+      focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks, flushUnsaved, store]);
 
+  // ── Controls ───────────────────────────────────────────────────────────────
   const handleStart = useCallback(() => {
     if (!store.selectedSubject) return;
     requestNotificationPermission();
@@ -272,7 +279,6 @@ export function usePomodoroTimer() {
       phaseEndRef.current += Date.now() - pauseStartRef.current;
     }
     pauseStartRef.current = 0;
-
     store.setIsRunning(true);
     store.setIsPaused(false);
   }, [store]);
@@ -305,7 +311,9 @@ export function usePomodoroTimer() {
 
   const switchPhase = useCallback((phase: TimerPhase) => {
     if (store.currentPhase === 'focus') flushUnsaved();
-    const duration = phase === 'focus' ? focusMinutes * 60 : phase === 'short' ? shortBreakMinutes * 60 : longBreakMinutes * 60;
+    const duration = phase === 'focus' ? focusMinutes * 60
+      : phase === 'short' ? shortBreakMinutes * 60
+      : longBreakMinutes * 60;
     store.setIsRunning(false);
     store.setIsPaused(false);
     store.setCurrentPhase(phase);
@@ -316,22 +324,24 @@ export function usePomodoroTimer() {
     phaseEndRef.current = 0;
   }, [store, focusMinutes, shortBreakMinutes, longBreakMinutes, flushUnsaved]);
 
-  // Save on tab/window blur
+  // ── Visibility save + cleanup ──────────────────────────────────────────────
   useEffect(() => {
     const onVisibility = () => {
-      if (document.hidden && store.isRunning && store.currentPhase === 'focus') {
-        flushUnsaved();
-      }
+      if (document.hidden && store.isRunning && store.currentPhase === 'focus') flushUnsaved();
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [store.isRunning, store.currentPhase, flushUnsaved]);
 
-  // Cleanup on unmount
   useEffect(() => () => {
-    if (countdownRef.current) clearInterval(countdownRef.current);
     if (store.isRunning && store.currentPhase === 'focus') flushUnsaved();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Public API ─────────────────────────────────────────────────────────────
+  const phaseTotalSeconds = store.currentPhase === 'focus' ? focusMinutes * 60
+    : store.currentPhase === 'short' ? shortBreakMinutes * 60
+    : longBreakMinutes * 60;
 
   return {
     subjects, selectedSubject: store.selectedSubject, isLoading,
@@ -339,10 +349,10 @@ export function usePomodoroTimer() {
     allowLongTimers, autoStartBreaks,
     timeLeft: store.timeLeft, currentPhase: store.currentPhase,
     isRunning: store.isRunning, isPaused: store.isPaused,
-    currentCycle: store.currentCycle, phaseTotalSeconds: store.currentPhase === 'focus' ? focusMinutes * 60 : store.currentPhase === 'short' ? shortBreakMinutes * 60 : longBreakMinutes * 60,
+    currentCycle: store.currentCycle, phaseTotalSeconds,
     selectSubject, addSubject, hideSubject, deleteSubject,
     setFocusMinutes, setShortBreakMinutes, setLongBreakMinutes,
-    setAllowLongTimers, setAutoStartBreaks,
+    setAllowLongTimers, setAutoStartBreaks, syncPrefs,
     handleStart, handlePause, handleReset, switchPhase,
   };
 }

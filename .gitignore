@@ -1,9 +1,8 @@
 # Dependencies
 node_modules
 
-# Environment
-.env
-.env.*
+# Environment — .env* catches .env, .env.local, ".env copy", etc.
+.env*
 
 # Build output
 dist/
@@ -36,3 +35,6 @@ design.md
 
 # Temporary Local Skills and Guidelines
 tmp/
+
+# Secret management config (workspace IDs)
+.infisical.json

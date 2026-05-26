@@ -131,16 +131,6 @@
   background: var(--input-glass-hover);
 }
 
-/* ===== COMPACT GLASS INPUT ===== */
-.input-glass-compact {
-  background: var(--input-glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--input-glass-border);
-  border-radius: var(--radius);
-  color: var(--glass-text);
-  padding: 0.5rem 0.75rem;
-  min-height: 2.5rem;
-}
 
 .input-glass-compact:hover {
   background: var(--input-glass-hover);
@@ -186,19 +176,6 @@
 }
 
 /* ===== UTILITY CLASSES USING CSS VARIABLES ===== */
-.glass {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-}
-
-.glass-card {
-  background: var(--card-bg);
-  backdrop-filter: var(--card-blur);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius);
-  color: var(--card-text);
-}
 
 /* Consistent hover highlight (30% white overlay) */
 .hover-highlight {

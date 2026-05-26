@@ -1,0 +1,1823 @@
+[
+  {
+    "json_build_object": {
+      "profiles": [
+        {
+          "id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "username": "Nada",
+          "full_name": "Nada",
+          "updated_at": "2026-01-09T01:51:15.516723+00:00"
+        }
+      ],
+      "subjects": [
+        {
+          "id": "d0b2e7cc-d7b7-44ef-ae3c-da1a6137f7cc",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "name": "sql",
+          "is_hidden": false,
+          "created_at": "2025-10-05T00:00:00+00:00"
+        },
+        {
+          "id": "cfc31a60-1f98-4892-8cf6-c484eba5c56d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "name": "additionals",
+          "is_hidden": false,
+          "created_at": "2025-10-18T00:00:00+00:00"
+        },
+        {
+          "id": "86f723a9-f547-404e-88c8-3e075c193b43",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "name": "studying",
+          "is_hidden": false,
+          "created_at": "2025-11-13T00:00:00+00:00"
+        }
+      ],
+      "sessions": [
+        {
+          "id": "9cae31b3-8aa7-448b-a702-aa0ba917395a",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-09",
+          "minutes": 60,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "7007b3b8-fdf4-4e74-89f5-d4293e9d5e25",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-10",
+          "minutes": 9,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "538b79cd-5c0c-43c8-a194-12fb3daedfaf",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-11",
+          "minutes": 300,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "fd703f46-1a16-470e-9989-afa82fc32d58",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-12",
+          "minutes": 304,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a422d1ea-e254-4f7d-9b58-0eaf626fe0bb",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-13",
+          "minutes": 246,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "444fa17f-3355-449e-85e2-0952436fdfda",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-14",
+          "minutes": 430,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "89e37447-1013-4bdf-9f30-9566f845ea0d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-15",
+          "minutes": 539,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "f80a08c9-e9ba-4363-b353-099e68c0ad28",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-16",
+          "minutes": 142,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "d48926b3-0ee6-4ccb-9c59-51b5f7976cc0",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "sql",
+          "date": "2026-01-16",
+          "minutes": 81,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "ae2526fd-6f12-492a-a3a7-ee68d7e2beff",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-17",
+          "minutes": 161.66666666666669,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "c1c3db18-782c-4293-84a9-7df1d24f3a26",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "sql",
+          "date": "2025-10-05",
+          "minutes": 431,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "f023f833-07b8-4f7b-80b8-b14d52ff351c",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "sql",
+          "date": "2025-10-06",
+          "minutes": 132,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "19a6a481-9419-4989-b1c4-901a7da04c19",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "sql",
+          "date": "2025-10-07",
+          "minutes": 180,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "2ecf3a12-0b93-4d4a-966f-02881137b3c1",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "sql",
+          "date": "2025-10-08",
+          "minutes": 120,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "9cff4cc1-5952-46dd-b6a3-21d29ccafb52",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "sql",
+          "date": "2025-10-09",
+          "minutes": 227,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "ff835540-cf71-47d2-805b-fa5ae4acd8b0",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "sql",
+          "date": "2025-10-10",
+          "minutes": 282,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "1bd0b377-521e-41c4-ba90-edc0dc00fbbf",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "sql",
+          "date": "2025-10-11",
+          "minutes": 189,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "21436c42-55f8-4547-9606-4e2d8f4cd6d5",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-10-18",
+          "minutes": 267,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "d85a152a-dc83-4e73-984e-eaabd1fbe661",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-10-19",
+          "minutes": 144,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "cc36ef18-dde0-48a2-8c1e-fe7cdff6e45b",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "sql",
+          "date": "2025-10-19",
+          "minutes": 297,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "aca9b20d-9a5e-4d5e-af9d-841f961d3065",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "sql",
+          "date": "2025-10-20",
+          "minutes": 374,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "b75f7e3e-8d60-49b4-9893-a6432627043a",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "sql",
+          "date": "2025-10-21",
+          "minutes": 256,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "90703f15-f86f-4169-8177-d5da616c950d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "sql",
+          "date": "2025-10-22",
+          "minutes": 16,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "84b1772f-bd57-4447-bcb8-13a41bb1a582",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-10-23",
+          "minutes": 221,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "962bb527-ce69-412f-aa7a-903672083a37",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-10-24",
+          "minutes": 140,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "c1d663e3-2486-4502-b39f-83c29d64c474",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-10-25",
+          "minutes": 377,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "4cb96844-28d2-4a17-8c85-8434414a98cd",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-10-27",
+          "minutes": 140,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "e30cda1c-d197-49a3-9d86-b6c5b6687089",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-10-28",
+          "minutes": 146,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "668f391c-de9f-44c2-bcfa-887619468bd1",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-10-29",
+          "minutes": 78,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "8720c455-1673-4303-8e4a-0c0c03b9ccd7",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-11-10",
+          "minutes": 159,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "8654a06c-a01b-4f85-8e2b-07151ad3f15d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-13",
+          "minutes": 333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "8ae3a24f-fb36-413b-90ad-7dd02e37fd66",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-14",
+          "minutes": 235,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a996c721-5c9a-4d69-88c0-e47439f64194",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-15",
+          "minutes": 412,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "7490c0f2-30d1-4288-8570-aa76dc6e63e9",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-16",
+          "minutes": 505,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "f0a75e31-1ab3-40b1-9bb8-e21ca539f70f",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-17",
+          "minutes": 217,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "f3fd1f6e-d731-4b97-9d0a-3619a48bd4eb",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-18",
+          "minutes": 467,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "88f0f566-a5d5-479c-a583-b67b841245b0",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-19",
+          "minutes": 333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "49452c3f-3df6-4035-afa2-80222c3275a6",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-20",
+          "minutes": 342,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "034563a5-42fc-4423-909a-9ade827f8b0a",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-11-20",
+          "minutes": 106,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "1e7cfa72-ce93-447b-95f8-622bdbbeb214",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-21",
+          "minutes": 180,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "2aa4d7df-e708-443c-a7fa-86ae8fff7896",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-22",
+          "minutes": 328,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "bc89d978-7fa5-488d-95bd-0634b245e742",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-23",
+          "minutes": 50,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "ffb293ab-bf8f-4ec2-93c3-1158986a38d3",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-24",
+          "minutes": 226,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "2d4d4774-fb47-479d-b830-9eef61eec162",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-25",
+          "minutes": 188,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "5b6459df-88fd-422c-898a-0c5a0e70bab9",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-26",
+          "minutes": 1,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "cdc7707e-95a3-4f6e-89cb-c492c3d6d18a",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-28",
+          "minutes": 180,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "f0bdc690-a6dc-48cc-a3a9-289220099e1f",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-29",
+          "minutes": 195,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "d649eaf9-009c-484e-b0d2-0de0cc8f8887",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-11-30",
+          "minutes": 98,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "5280ac6c-7681-4867-afa1-c58739c9652b",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-01",
+          "minutes": 122,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "edbec0a6-4cc5-4866-95bb-01542c0f925f",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-02",
+          "minutes": 79,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "010d723c-43c7-4e67-9f1e-50ae918678e1",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-03",
+          "minutes": 107,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "7454d273-b884-44eb-9000-04563ce1420b",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-04",
+          "minutes": 83,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "8903b227-79b6-4627-8a9f-6b21a670c737",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-05",
+          "minutes": 96,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "37c17b0d-5526-45b9-a8bc-87b7fe01f465",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-06",
+          "minutes": 177,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "cff37d76-e963-4ef0-afd8-21879c883cf7",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-07",
+          "minutes": 225,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "5d0557a5-067f-4624-ab1a-e53a39633124",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-12-07",
+          "minutes": 39,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "d23e172a-667f-4b7e-8c8c-1f8a0d98ac7d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-12-08",
+          "minutes": 91,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "1b9a269c-38ea-4582-9bec-6ced3864ce5e",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-12-09",
+          "minutes": 199,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "bfd53c4c-dc66-42e0-8b36-0fe6278c07d3",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-12-10",
+          "minutes": 301,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "ea50c1a4-83ea-40c7-a51c-210e9dfd2ed6",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-11",
+          "minutes": 129,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "3e9915e4-e9a0-4c27-88fe-b044c9831ff1",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-12",
+          "minutes": 357,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "7ae69dea-7cdb-4503-83e8-e53f21ffb018",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-13",
+          "minutes": 53,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "10b53687-411a-49ce-a8e6-eb823eb5dfb6",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-14",
+          "minutes": 171,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "d6ccaa69-33cc-4801-8b87-0fa166384f24",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-15",
+          "minutes": 159,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "e27bc837-d111-44fe-89e2-7491fa83dd82",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-16",
+          "minutes": 40,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "55b97465-5401-4a37-80ad-e6c5fd0e755e",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2025-12-17",
+          "minutes": 27,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "94e08b35-dfe1-4290-a002-ecc591204628",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-17",
+          "minutes": 284,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "215ae061-196e-4bff-b4bc-4ae8387ac933",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-18",
+          "minutes": 169,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "09c7f12a-2f65-4c4f-8ce2-66cc8b650a9d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-19",
+          "minutes": 474,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "f8645f17-69ae-4fb9-a17f-28221c6999db",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-20",
+          "minutes": 318,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "518f3ca6-62ae-4ce9-8c6e-4c9beaf3c1ec",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-21",
+          "minutes": 182,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "7ea32a8b-f78b-4b27-b210-0ae743d1001b",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-22",
+          "minutes": 228,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "3b65e7b0-46f7-46e5-9405-505718132be4",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-23",
+          "minutes": 219,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "ed8a4b30-616b-4886-ada1-f61cd2b39170",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-24",
+          "minutes": 204,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "884642bc-0965-46fe-a512-27a9a26fd701",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-25",
+          "minutes": 130,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "57fb6ca1-5f2a-49a2-9de7-94b2fa58d20c",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-26",
+          "minutes": 218,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a218979f-efd3-4f87-9262-27cb83432971",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-27",
+          "minutes": 335,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "cf4a9486-fb5d-41e1-8b8f-679079a41de0",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-28",
+          "minutes": 140,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "6bdf8a30-9c4a-4161-9998-575700cffe18",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-29",
+          "minutes": 278,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "0831fe21-b629-4c3c-9c8a-9192ecfe6108",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2025-12-31",
+          "minutes": 167,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "98a84dd8-4d8e-41ef-95ea-77427837c18b",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2026-01-01",
+          "minutes": 250,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "478cb478-7da7-4b88-a4bc-0792c9035687",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2026-01-02",
+          "minutes": 132,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "921a70cb-4b83-4f81-bfd0-528a699687ae",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2026-01-03",
+          "minutes": 19,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "88ebde01-63c9-4024-828b-11a7802320ad",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2026-01-04",
+          "minutes": 22,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "55a14d44-56e9-4aa1-a1b1-345a45ecb472",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-04",
+          "minutes": 53,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "7116bcb1-320b-49b8-b9ff-d0a20e49a832",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-05",
+          "minutes": 52,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "4f7c1247-710e-40a9-b9ac-679cf51d0af3",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2026-01-05",
+          "minutes": 73,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "be90b067-f896-4da6-8e39-0cbaabedd050",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2026-01-06",
+          "minutes": 85,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "36aa10a5-b3cf-4a86-ba73-af7ecb90012f",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-06",
+          "minutes": 116,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "665ebff4-a2fa-4fd9-9b4f-8b010e493c0d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2026-01-07",
+          "minutes": 98,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "4df1f6de-0b9d-4927-83fd-244cccc3d48c",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-07",
+          "minutes": 59,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "46b722cf-d9b6-4b6a-8390-1bd951ac00e0",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-08",
+          "minutes": 218,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "9472001e-8710-4a32-ac4c-f6c9ab3502ba",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "studying",
+          "date": "2026-01-08",
+          "minutes": 48,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "fe48ea3f-f30e-4a88-8f8e-1c2cace86592",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-19",
+          "minutes": 529.4166666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "fba4b389-64fc-4ca9-a45f-7c493ff3153e",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-20",
+          "minutes": 311.03333333333336,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "d37d764b-0243-44cd-9ad7-4b4e71c0a5a2",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-21",
+          "minutes": 645.75,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "007ad743-1bae-429a-91e5-5a5a57750f25",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-22",
+          "minutes": 724.5500000000001,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "f477cfba-eb7d-4b63-bf35-647adbf0f19b",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-24",
+          "minutes": 252.11666666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "014dadb3-3454-4760-828a-c8d4cde5b337",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-25",
+          "minutes": 81,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "30283ce4-2610-40e0-b8db-3b11ab1ea337",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-26",
+          "minutes": 354.53333333333336,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "551660fa-ec8c-4fb0-a63e-fc334104603a",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-27",
+          "minutes": 562.7,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "c5307557-5991-43ed-b996-6a8ed5a766c0",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-28",
+          "minutes": 1233.75,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "275b6d81-95ed-4945-991f-6708323e54f1",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-29",
+          "minutes": 382.1333333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "57f6c385-bb40-4ba6-85d7-1e02708c68cd",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-30",
+          "minutes": 478.0833333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "7068d065-a880-4ef9-9843-89867bce5063",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-01-31",
+          "minutes": 583.0999999999999,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "b68e5622-7520-417a-b5d7-02daccf2163d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-01",
+          "minutes": 167.51666666666665,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "b372d1a9-8a1e-42f0-80aa-1db589c1b6a1",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-02",
+          "minutes": 591.6166666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "1118f753-7696-4237-8b67-54b19e324868",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-03",
+          "minutes": 469.1,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "15b8bb6b-8869-443b-b912-0dbee3587a5b",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-04",
+          "minutes": 219.03333333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "560d08a5-43a4-486b-b7a2-c42b66648b5e",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-05",
+          "minutes": 693.7499999999999,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "5b1c5aed-4970-4efa-b086-18529ab9aa63",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-06",
+          "minutes": 97.91666666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "2e2e1f75-07aa-441a-b363-2d105699f1bb",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-07",
+          "minutes": 369.53333333333336,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "ec830266-a63c-414d-bef2-a826c62dbd0a",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-08",
+          "minutes": 209.2,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "d1148d64-5696-42a0-bef4-58f3b47ffaa3",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-09",
+          "minutes": 543.1166666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "73b06acf-b112-41f1-bf24-29485d2cba0c",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-10",
+          "minutes": 390.84999999999997,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a098668b-9a02-40a6-a205-894f40553149",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-11",
+          "minutes": 648.35,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "cbe0f901-4d50-4b45-8907-46d3c10bf633",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-12",
+          "minutes": 644.1500000000001,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a1f3ae08-68a2-4726-b746-3745a992946a",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-14",
+          "minutes": 307.1166666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "dcf6d159-7920-401c-bcd0-65f63eaab8b5",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-15",
+          "minutes": 668.6166666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "32070ea9-3d25-47d9-9c51-a939afec0ccf",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-16",
+          "minutes": 482.1166666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "b2153831-d15a-471b-8ecb-fa20d9d97a9e",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-17",
+          "minutes": 312.81666666666666,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "2289a848-0437-44fb-ae0f-e2b55f622949",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-18",
+          "minutes": 3,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "bde1db8b-c50f-4717-8643-afe0f68630fb",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-19",
+          "minutes": 159.75,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "6aa93f11-cfdb-4d1a-8826-01567dcef1b6",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-22",
+          "minutes": 8,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a09ca5da-3eee-4cfc-9df9-7f94faa82f5c",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-23",
+          "minutes": 106,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a6972984-59b0-4f00-bf2f-4787b87db0e0",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-24",
+          "minutes": 435.75000000000006,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "0d611790-1f20-4618-bb0b-b0420b65f656",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-25",
+          "minutes": 756.0833333333334,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "378803a3-c36d-49c7-806e-9da3cf498c1d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-26",
+          "minutes": 170.05,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a17e6cea-954e-4da8-bc23-6295900304c5",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-27",
+          "minutes": 134.48333333333335,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "beed5530-d5ff-4fe0-9f6e-fdae8878833d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-02-28",
+          "minutes": 105.53333333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "4be7a0d0-a068-4063-81a8-3415d6a23002",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-01",
+          "minutes": 151.9,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "50f141c6-e185-4c72-905f-db7d19a36ac4",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-03",
+          "minutes": 19,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "505b1400-d4fe-4e4a-af2f-a12def9dd9ff",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-06",
+          "minutes": 388.98333333333335,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a093d975-a331-49f7-aef5-91cd006c40ec",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-07",
+          "minutes": 250.75,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "dd2b0ec3-ecac-4583-9786-4be3a24a486f",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-08",
+          "minutes": 90.68333333333334,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "ee549b7b-e6f4-419f-abb5-fd6f300e346d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-09",
+          "minutes": 134.61666666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "967e5bb8-5d5f-4ecf-be8d-b39b9048ac25",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-10",
+          "minutes": 337.0333333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "d769fb75-6460-4f6e-b4ce-308323b73e3b",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-11",
+          "minutes": 143.33333333333334,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "9357f773-f167-42da-a029-16eac5c3b4cd",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-12",
+          "minutes": 119.36666666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "4957f4ae-14e1-456a-99cd-c05fb1effd5e",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-13",
+          "minutes": 163.71666666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "197f7124-b53a-4359-870f-88c1ad27d12a",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-14",
+          "minutes": 38,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "d3ae0b66-e20e-42d7-860a-11568c85b999",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-15",
+          "minutes": 230.96666666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "c161fc7f-e879-4fed-b394-b68d90ed51ff",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-16",
+          "minutes": 236.95,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "b58be070-056e-4e23-8212-ac35c1370c96",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-17",
+          "minutes": 251.65,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "ea861ac0-454d-48a7-a7ae-0331b5ac3d6a",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-18",
+          "minutes": 161.95,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "698aa732-d988-4aef-b543-4ed547ae7926",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-19",
+          "minutes": 104.25,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "8a3eb983-d14f-4ddd-be57-6a5692fc1285",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-20",
+          "minutes": 42,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "853c4fba-07c6-4036-934c-1d68d0d8ad9e",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-21",
+          "minutes": 81.83333333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "627b41b9-dd88-478e-af2c-03f72a2de46c",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-22",
+          "minutes": 26,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "32ebf130-f381-4ae8-8576-22cb98f49bf1",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-26",
+          "minutes": 231.75,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "6966f968-024c-4ed0-905d-71de6a69bd58",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-27",
+          "minutes": 267,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "679e7c9b-e0d2-4ac0-920f-8ba2fee650a0",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-28",
+          "minutes": 127,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "170d4c75-7339-45f5-b8af-80724edf3bff",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-29",
+          "minutes": 462.5,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "44bbf20e-e554-40ed-a5b1-9f34d5ebb700",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-30",
+          "minutes": 364.75,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "4eaf2201-fa2b-4d7f-8da5-43e03759044d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-03-31",
+          "minutes": 232.13333333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "cfb4fa8c-6db0-4998-abea-06958cee33cd",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-01",
+          "minutes": 335.43333333333334,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "040eda3d-56b9-4354-bc66-d1c5cf074622",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-02",
+          "minutes": 119,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "ba6dc457-1210-4213-b1d2-46ce5fe003f3",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-03",
+          "minutes": 287.6,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "96313f46-c441-4a57-8b0d-eeb6b44d43e4",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-04",
+          "minutes": 318.2,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "2f6f0ad9-6ce0-417a-ae91-220d1b060287",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-05",
+          "minutes": 266.08333333333337,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "1b21e370-cd3b-4459-9369-b2be7a918bb2",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-06",
+          "minutes": 373.73333333333335,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "1a5352a0-a623-400f-89c5-b035edf45ba4",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-07",
+          "minutes": 241.23333333333335,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "e350ef05-b6db-47bf-b897-e3857b7e3435",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-08",
+          "minutes": 264.8833333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "f300d785-0d13-4f00-8203-72a4dfb6c7ab",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-09",
+          "minutes": 211.76666666666665,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "75cdc0d2-e514-4a8f-aeed-35fd2e9ed47c",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-10",
+          "minutes": 812.1,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "6f9a2a3e-2c1e-4494-9ab4-c23d155f5add",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-11",
+          "minutes": 92.48333333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "fe58a312-0c54-4bf3-a652-0a4e50d1420c",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-12",
+          "minutes": 95,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "b10da1a6-35ef-4dec-a5fd-588909251556",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-13",
+          "minutes": 125,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a8a4d2e8-a12c-45bd-bab4-375ceb328e3b",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-14",
+          "minutes": 270.54999999999995,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "d588123c-23a3-40c2-a0ad-5f5545a478a2",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-15",
+          "minutes": 455.23333333333335,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "921bcdd7-2d7c-41f2-8b19-4b8eda98a559",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-16",
+          "minutes": 292.1666666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "b262c569-4f06-421b-a733-a22060c51acd",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-17",
+          "minutes": 325.06666666666666,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "b7e90871-22c4-4b68-a1d0-8f2eed489124",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-19",
+          "minutes": 167.2,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a052a3c3-ca96-4280-9cfb-74d914478368",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-20",
+          "minutes": 375,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "cacef28b-5d2d-4d56-809c-4936295afe1e",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-21",
+          "minutes": 180.2,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "c93becf0-767b-4c46-8af5-f0cc175caa75",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-22",
+          "minutes": 199.71666666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "1f5a4548-c3bc-48de-b440-dff28c15831b",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-23",
+          "minutes": 420.6666666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "74fd1010-5dd1-47c3-ae29-7afe88020601",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-24",
+          "minutes": 277.76666666666665,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "41c970c9-a130-4bec-94d7-d842d3ce8283",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-25",
+          "minutes": 329.4666666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "e217a27b-1ca0-43ac-9bf9-fe7cb8215a95",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-26",
+          "minutes": 243.95,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "b7a8c3f5-0ad5-4f39-9d50-e8aed4eeed29",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-27",
+          "minutes": 413.98333333333335,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "52045c15-ad36-48e9-904a-1156b6abe37e",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-28",
+          "minutes": 389.46666666666664,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "fed49dc4-5dcc-4200-99e7-9a174637de46",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-29",
+          "minutes": 473.2666666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a7fa6c76-d1ec-4129-b85e-6d3c9416b583",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-04-30",
+          "minutes": 343.6166666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "f9229350-88ef-4a25-aec5-2e1cd8928074",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-01",
+          "minutes": 295.0333333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "11d00ec5-ef46-4998-a485-345e386365db",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-02",
+          "minutes": 400.3333333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "a5d65373-a178-41e3-b2f1-d3ed4119e531",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-03",
+          "minutes": 359.33333333333337,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "58290c3c-7082-480f-a673-c105e2673fb8",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-04",
+          "minutes": 539.85,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "30d36f9c-1414-4438-874e-6783a5f3a58a",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-05",
+          "minutes": 160.2,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "661190ca-06d2-4f90-bb50-fb9ee3af21e9",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-06",
+          "minutes": 365.8,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "0bbdf0c2-793b-4515-8b7f-0d9cd0604923",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-07",
+          "minutes": 641.4833333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "65af58fa-c7b1-4065-9a6c-74b576855dc1",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-08",
+          "minutes": 204.63333333333333,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "68c80e14-73e7-4264-95d4-2484936caf0d",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-10",
+          "minutes": 209.88333333333335,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "9b2a0b87-2f44-4afb-98f6-5effc51100cb",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-11",
+          "minutes": 482.8833333333334,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "7936245d-0f42-4c52-b6b3-022e467457de",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-12",
+          "minutes": 118,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "87e02015-cb77-4de3-99ce-0cb8c9f5c953",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-13",
+          "minutes": 91.21666666666667,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        },
+        {
+          "id": "594583f7-7dab-4b42-a7eb-7f5d972ea916",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "subject_id": null,
+          "subject_name": "additionals",
+          "date": "2026-05-14",
+          "minutes": 96,
+          "created_at": "2026-05-14T20:51:51.878+00:00"
+        }
+      ],
+      "todos": [],
+      "notes": [
+        {
+          "id": "43c35fab-e4e4-4233-85b7-e24da41a9ad2",
+          "user_id": "09486efd-7e63-47c3-9449-7adb6abdef8f",
+          "title": "Be awesome",
+          "content": "",
+          "color": "#ff24d7",
+          "created_at": "2026-01-11T18:06:08.704+00:00"
+        }
+      ]
+    }
+  }
+]

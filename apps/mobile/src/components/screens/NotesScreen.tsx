@@ -11,7 +11,7 @@ const NOTE_COLORS = ['#6366f1', '#ef4444', '#10b981', '#f59e0b', '#ec4899', '#06
 
 export default function NotesScreen() {
   const { user } = useAuth();
-  const { notes, isLoading, addNote, updateNote, deleteNote } = useNotes(user?.id || null);
+  const { notes, isLoading, addNote, updateNote, deleteNote } = useNotes();
   const [activeId, setActiveId] = useState<number | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
@@ -129,7 +129,7 @@ export default function NotesScreen() {
                 borderColor: active?.color === c ? 'white' : 'transparent',
               }}
               onPress={() => {
-                if (activeId) updateNote(activeId, { color: c }, true);
+                if (activeId) updateNote(activeId, { color: c });
                 setColorPickerOpen(false);
               }}
             />

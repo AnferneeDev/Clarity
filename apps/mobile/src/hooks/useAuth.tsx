@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Platform } from 'react-native';
 import { signIn, signUp, signOut, restoreSession } from '@/lib/auth';
-import { fullSync, startBackgroundSync, stopBackgroundSync, pushPendingSessions, pushPendingTasks, pushPendingNotes } from '@/lib/sync';
 
 interface User {
   id: string;
@@ -61,22 +60,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const session = await restoreSession();
         if (session) {
           setUser(session);
-          await fullSync(session.id);
-          startBackgroundSync(session.id);
         }
       } catch {} finally {
         setIsLoading(false);
       }
     };
     restore();
-    return () => { stopBackgroundSync(); };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const u = await signIn(email, password);
     setUser(u.user);
-    await fullSync(u.user.id);
-    startBackgroundSync(u.user.id);
   }, []);
 
   const signUpHandler = useCallback(async (email: string, password: string) => {
@@ -89,15 +83,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    // Flush any pending unsynced data before signing out
-    if (user?.id) {
-      try {
-        await pushPendingSessions(user.id);
-        await pushPendingTasks(user.id);
-        await pushPendingNotes(user.id);
-      } catch {}
-    }
-    stopBackgroundSync();
     await signOut();
     setUser(null);
   }, [user]);

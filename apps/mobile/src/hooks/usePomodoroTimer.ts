@@ -3,7 +3,6 @@ import { AppState, AppStateStatus, Alert } from 'react-native';
 import { getLocalDateString } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { useTimerStore } from '@/lib/store';
-import { upsertSession } from '@/lib/db';
 
 type TimerPhase = 'focus' | 'short' | 'long';
 
@@ -53,7 +52,7 @@ async function sendNotification(title: string, body: string) {
   } catch {}
 }
 
-export function usePomodoroTimer(userId: string | null) {
+export function usePomodoroTimer() {
   const store = useTimerStore();
 
   const [focusMinutes, setFocusMinutesState] = useState(25);
@@ -106,7 +105,7 @@ export function usePomodoroTimer(userId: string | null) {
             body: phase === 'focus' ? 'Time for a break!' : 'Time to focus!',
             sound: true,
           },
-          trigger: { seconds },
+          trigger: { seconds } as any,
         });
       }
     } catch {}
@@ -218,18 +217,18 @@ export function usePomodoroTimer(userId: string | null) {
 
   const saveChunk = useCallback(async () => {
     const subject = trackingSubjectRef.current;
-    if (!subject || !userId) return;
+    if (!subject) return;
     const activeMs = (Date.now() - sessionStartRef.current) - totalPausedMsRef.current;
     const activeSeconds = Math.floor(activeMs / 1000);
     if (activeSeconds >= lastSavedSecondsRef.current + DEFAULT_CHUNK_SECONDS) {
-      await upsertSession(userId, subject, todayRef.current, 1);
+      await api.timer.saveSession(subject, todayRef.current, 1);
       lastSavedSecondsRef.current += DEFAULT_CHUNK_SECONDS;
     }
-  }, [userId]);
+  }, []);
 
   const flushUnsaved = useCallback(async () => {
     const subject = trackingSubjectRef.current;
-    if (!subject || !userId) return;
+    if (!subject) return;
     let endMs = Date.now();
     if (phaseEndRef.current > 0 && endMs > phaseEndRef.current) {
       endMs = phaseEndRef.current;
@@ -238,10 +237,10 @@ export function usePomodoroTimer(userId: string | null) {
     const activeSeconds = Math.max(0, Math.floor(activeMs / 1000));
     const unsaved = activeSeconds - lastSavedSecondsRef.current;
     if (unsaved > 2) {
-      await upsertSession(userId, subject, todayRef.current, unsaved / 60);
+      await api.timer.saveSession(subject, todayRef.current, unsaved / 60);
       lastSavedSecondsRef.current = activeSeconds;
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     if (store.isRunning && !store.isPaused && store.currentPhase === 'focus') {

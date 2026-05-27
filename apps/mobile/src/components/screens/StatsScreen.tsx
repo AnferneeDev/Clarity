@@ -1,8 +1,10 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { BarChart3, RefreshCw } from 'lucide-react-native';
 import { useAuth } from '@/hooks/useAuth';
-import { useStats, getDateAggregatedStats } from '@/hooks/useStats';
+import { useStats } from '@/hooks/useStats';
+import { api } from '@/lib/api';
 import { getLocalDateString, formatMinutes } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 
@@ -47,7 +49,7 @@ export default function StatsScreen() {
   const [viewMode, setViewMode] = useState<'table' | 'progress'>('table');
   const [refreshing, setRefreshing] = useState(false);
   const [dateData, setDateData] = useState<Array<{ subject: string; date: string; total_minutes: number }>>([]);
-  const { subjectTotals, isLoading, fetchStats } = useStats(userId);
+  const { subjectTotals, isLoading, fetchStats } = useStats();
 
   const range = useMemo(() => getDateRange(dateFilter), [dateFilter]);
 
@@ -56,14 +58,18 @@ export default function StatsScreen() {
     setRefreshing(true);
     try {
       const [dd] = await Promise.all([
-        getDateAggregatedStats(userId, range.start, range.end),
+        api.timer.getSubjectDateAggregated(range.start, range.end),
         fetchStats(range.start, range.end),
       ]);
       setDateData(dd || []);
     } catch {} finally { setTimeout(() => setRefreshing(false), 300); }
   };
 
-  useEffect(() => { loadAllData(); }, [dateFilter, userId]);
+  useFocusEffect(
+    useCallback(() => {
+      loadAllData();
+    }, [dateFilter, userId, range])
+  );
 
   const totalMinutes = subjectTotals.reduce((s, r) => s + r.total_minutes, 0);
 

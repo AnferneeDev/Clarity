@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 
 export default function TasksScreen() {
   const { user } = useAuth();
-  const { tasks, isLoading, addTask, updateTask, deleteTask } = useTasks(user?.id || null);
+  const { tasks, isLoading, addTask, updateTask, deleteTask } = useTasks();
   const [newText, setNewText] = useState('');
 
   const sorted = [...tasks].sort((a, b) => {

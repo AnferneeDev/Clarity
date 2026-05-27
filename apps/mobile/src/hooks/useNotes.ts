@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { getNotes, upsertNote, deleteNoteLocally, removeSyncedNote } from '@/lib/db';
 
 interface Note {
   id: number;
@@ -8,61 +7,34 @@ interface Note {
   title: string;
   content: string;
   color: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export function useNotes(userId: string | null) {
+export function useNotes() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const debounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const fetchNotes = useCallback(async () => {
-    if (!userId) return;
     try {
-      const rows = await getNotes(userId);
-      setNotes(rows.map(r => ({ ...r })));
-    } catch {} finally { setIsLoading(false); }
-  }, [userId]);
+      const data = await api.notes.getAll();
+      setNotes(Array.isArray(data) ? data : []);
+    } catch { } finally { setIsLoading(false); }
+  }, []);
 
   useEffect(() => { fetchNotes(); }, [fetchNotes]);
 
-  const addNote = useCallback(async (title: string, content?: string, color?: string) => {
-    if (!userId) return;
-    await upsertNote(userId, { title, content, color });
-    await fetchNotes();
-  }, [userId, fetchNotes]);
+  const addNote = useCallback(async (title: string, content = '', color = '#ffffff') => {
+    try { await api.notes.add({ title, content, color }); await fetchNotes(); } catch { }
+  }, [fetchNotes]);
 
-  const updateNote = useCallback(async (id: number, updates: Partial<Note>, immediate = false) => {
-    if (!userId) return;
-    if (immediate) {
-      await upsertNote(userId, { id, ...updates });
-      await fetchNotes();
-      return;
-    }
-    if (debounceRef.current[String(id)]) clearTimeout(debounceRef.current[String(id)]);
-    debounceRef.current[String(id)] = setTimeout(async () => {
-      await upsertNote(userId, { id, ...updates });
-    }, 500);
-    setNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n));
-  }, [userId, fetchNotes]);
+  const updateNote = useCallback(async (id: number, updates: Record<string, unknown>) => {
+    try { await api.notes.update(id, updates); setNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates } : n)); } catch { }
+  }, []);
 
   const deleteNote = useCallback(async (id: number) => {
-    if (!userId) return;
-    await deleteNoteLocally(id);
-    await fetchNotes();
-  }, [userId, fetchNotes]);
+    try { await api.notes.delete(id); setNotes(prev => prev.filter(n => n.id !== id)); } catch { }
+  }, []);
 
-  const refetch = useCallback(async () => {
-    if (!userId) return;
-    setIsLoading(true);
-    try {
-      const data = await api.notes.getAll();
-      if (Array.isArray(data)) {
-        const { replaceNotes: rn } = await import('@/lib/db');
-        await rn(userId, data);
-      }
-    } catch {}
-    await fetchNotes();
-  }, [userId, fetchNotes]);
-
-  return { notes, isLoading, addNote, updateNote, deleteNote, refetch };
+  return { notes, isLoading, addNote, updateNote, deleteNote, refetch: fetchNotes };
 }

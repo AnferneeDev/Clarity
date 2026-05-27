@@ -41,9 +41,7 @@ export function getSupabase() {
       storage: createSecureStoreAdapter(),
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: Platform.OS === 'web',
     },
-    db: { schema: 'app' },
   });
 
   return supabaseClient;

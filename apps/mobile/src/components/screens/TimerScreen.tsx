@@ -6,7 +6,7 @@ import SubjectPicker from '@/components/timer/SubjectPicker';
 
 export default function TimerScreen() {
   const { user } = useAuth();
-  const timer = usePomodoroTimer(user?.id || null);
+  const timer = usePomodoroTimer();
 
   if (timer.isLoading) {
     return (

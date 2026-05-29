@@ -52,14 +52,6 @@ export async function signIn(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
-  const { getItemAsync, setItemAsync } = await import('expo-secure-store');
-  if (data.session?.access_token) {
-    await setItemAsync('clarity_token', data.session.access_token);
-  }
-  if (data.session?.refresh_token) {
-    await setItemAsync('clarity_refresh', data.session.refresh_token);
-  }
-
   return { user: { id: data.user.id, email: data.user.email } };
 }
 
@@ -73,18 +65,12 @@ export async function signUp(email: string, password: string) {
 export async function signOut() {
   const supabase = getSupabase();
   await supabase.auth.signOut();
-  const { deleteItemAsync } = await import('expo-secure-store');
-  await deleteItemAsync('clarity_token').catch(() => {});
-  await deleteItemAsync('clarity_refresh').catch(() => {});
 }
 
 export async function restoreSession(): Promise<{ id: string; email?: string } | null> {
   const supabase = getSupabase();
   const { data } = await supabase.auth.getSession();
   if (!data.session) return null;
-
-  const { setItemAsync } = await import('expo-secure-store');
-  await setItemAsync('clarity_token', data.session.access_token);
 
   return {
     id: data.session.user.id,

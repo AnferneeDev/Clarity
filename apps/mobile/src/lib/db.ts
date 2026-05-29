@@ -29,7 +29,11 @@ export async function setPreference(key: string, value: string) {
 }
 
 export async function getAllPreferences(): Promise<Record<string, string>> {
-  return {};
+  const db = await getDb();
+  const rows = (await db.getAllAsync('SELECT key, value FROM preferences')) as Array<{ key: string; value: string }>;
+  const map: Record<string, string> = {};
+  for (const r of rows) map[r.key] = r.value;
+  return map;
 }
 
 export async function getBackground(viewName: string): Promise<string | null> {

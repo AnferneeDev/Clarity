@@ -186,11 +186,12 @@ Resources:
             Override: true
             ContentSecurityPolicy: !Sub >-
               default-src 'self';
-              script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co;
+              script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.supabase.co;
               style-src 'self' 'unsafe-inline';
               img-src 'self' data: https://*.supabase.co;
               connect-src 'self' https://*.supabase.co https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com;
               font-src 'self' data:;
+              worker-src 'self' blob:;
               frame-ancestors 'none';
           StrictTransportSecurity:
             Override: true
@@ -307,6 +308,36 @@ Resources:
           Properties:
             ApiId: !Ref HttpApi
             Path: /timer/subjects
+            Method: GET
+        SubjectsPost:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /timer/subjects
+            Method: POST
+        SubjectsDelete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /timer/subjects
+            Method: DELETE
+        TimerStart:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /timer/start
+            Method: POST
+        TimerStop:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /timer/stop
+            Method: POST
+        TimerActive:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /timer/active
             Method: GET
 
   TimerLogGroup:

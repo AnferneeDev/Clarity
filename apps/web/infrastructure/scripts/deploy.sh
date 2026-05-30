@@ -35,10 +35,13 @@ echo ""
 command -v sam >/dev/null 2>&1 || { echo "ERROR: AWS SAM CLI not found. Install: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html"; exit 1; }
 command -v aws >/dev/null 2>&1 || { echo "ERROR: AWS CLI not found."; exit 1; }
 
-echo "[1/4] Building Lambda functions..."
+echo "[1/5] Running tests..."
+cd "$INFRA_DIR/../.." && npm run test:web
+
+echo "[2/5] Building Lambda functions..."
 "$SCRIPT_DIR/utils/build.sh"
 
-echo "[2/4] Building Next.js frontend..."
+echo "[3/5] Building Next.js frontend..."
 # Extract Supabase values from samconfig.toml for build-time injection (handles escaped quotes)
 export NEXT_PUBLIC_SUPABASE_URL=$(grep -o 'SupabaseUrl=\\"[^\\"]*\\"' "$INFRA_DIR/samconfig.toml" | cut -d'=' -f2 | tr -d '\\"')
 export NEXT_PUBLIC_SUPABASE_ANON_KEY=$(grep -o 'SupabaseAnonKey=\\"[^\\"]*\\"' "$INFRA_DIR/samconfig.toml" | cut -d'=' -f2 | tr -d '\\"')
@@ -46,11 +49,11 @@ export NEXT_PUBLIC_SUPABASE_ANON_KEY=$(grep -o 'SupabaseAnonKey=\\"[^\\"]*\\"' "
 echo "  Building with NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL"
 cd "$INFRA_DIR/.." && npm run build
 
-echo "[3/4] Validating SAM template..."
+echo "[4/5] Validating SAM template..."
 cd "$INFRA_DIR"
 sam validate
 
-echo "[4/4] Deploying infrastructure..."
+echo "[5/5] Deploying infrastructure..."
 sam deploy $GUIDED_FLAG \
   --stack-name "$STACK_NAME" \
   --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \

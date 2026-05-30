@@ -68,9 +68,13 @@ CREATE TABLE IF NOT EXISTS app.sessions (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Ensure the column exists if the table was created before we added it
+ALTER TABLE app.sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
 CREATE INDEX IF NOT EXISTS idx_sessions_user_date ON app.sessions(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_subject ON app.sessions(user_id, subject_name);
 CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON app.sessions(user_id, updated_at);
+ALTER TABLE app.sessions DROP CONSTRAINT IF EXISTS sessions_user_subject_date_uniq;
 ALTER TABLE app.sessions ADD CONSTRAINT sessions_user_subject_date_uniq UNIQUE (user_id, subject_name, date);
 
 ALTER TABLE app.sessions ENABLE ROW LEVEL SECURITY;
@@ -232,6 +236,32 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION app.handle_new_user();
+
+-- ============================================
+-- 8. Active Timers
+-- ============================================
+CREATE TABLE IF NOT EXISTS app.active_timers (
+  user_id                   UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  subject_name              TEXT NOT NULL,
+  started_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expected_duration_minutes INTEGER NOT NULL,
+  phase                     TEXT NOT NULL DEFAULT 'focus',
+  updated_at                TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE app.active_timers ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "active_timers_select" ON app.active_timers
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "active_timers_insert" ON app.active_timers
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "active_timers_update" ON app.active_timers
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "active_timers_delete" ON app.active_timers
+  FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================
 -- Grants & Permissions

@@ -10,9 +10,14 @@
   "scripts": {
     "dev:desktop": "cd apps/desktop && npm run dev",
     "dev:web": "npm run dev -w apps/web",
-    "dev:mobile": "npm run dev -w apps/mobile",
-    "make:desktop": "cd apps/desktop && npm run make",
-    "lint": "cd apps/desktop && npm run lint",
-    "test:web": "npm run test -w apps/web"
+    "dev:mobile": "npm run dev -w apps/mobile"
+  },
+  "overrides": {
+    "nativewind": {
+      "tailwindcss": "^3.4.19"
+    },
+    "react-native-css-interop": {
+      "tailwindcss": "^3.4.19"
+    }
   }
 }

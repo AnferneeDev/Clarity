@@ -52,6 +52,12 @@ export const api = {
   timer: {
     saveSession: (subjectName: string, date: string, minutes: number) =>
       request('/timer/sessions', { method: 'POST', body: JSON.stringify({ subjectName, date, minutes }) }),
+    startTimer: (subjectName: string, expectedDuration: number, phase: string) =>
+      request('/timer/start', { method: 'POST', body: JSON.stringify({ subjectName, expectedDuration, phase }) }),
+    stopTimer: () =>
+      request('/timer/stop', { method: 'POST' }),
+    getActiveTimer: () =>
+      request('/timer/active'),
     getSubjectTotals: (start?: string, end?: string) => {
       const params = new URLSearchParams();
       if (start) params.set('start', start);

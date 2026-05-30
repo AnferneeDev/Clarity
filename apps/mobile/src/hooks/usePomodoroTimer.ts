@@ -3,6 +3,9 @@ import { AppState, AppStateStatus, Alert } from 'react-native';
 import { getLocalDateString } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { useTimerStore } from '@/lib/store';
+import { getPreference, setPreference } from '@/lib/db';
+import * as Notifications from 'expo-notifications';
+import { Audio } from 'expo-av';
 
 type TimerPhase = 'focus' | 'short' | 'long';
 
@@ -13,15 +16,12 @@ const PREF_ALLOW_LONG = 'clarity_v3:allow_long_timers';
 const PREF_AUTO_START = 'clarity_v3:auto_start_breaks';
 const PREF_SELECTED = 'clarity_v3:selected_subject';
 
-const AUTO_SAVE_INTERVAL_MS = 10_000;
-const DEFAULT_CHUNK_SECONDS = 60;
 const PREF_SYNC_DEBOUNCE_MS = 2_000;
 
 let soundInstance: any = null;
 
 async function playSound() {
   try {
-    const { Audio } = await import('expo-av');
     if (!soundInstance) {
       const { sound } = await Audio.Sound.createAsync(
         { uri: 'https://claritytracker.online/Click.wav' },
@@ -31,24 +31,6 @@ async function playSound() {
     }
     await soundInstance.setPositionAsync(0);
     await soundInstance.playAsync();
-  } catch {}
-}
-
-async function sendNotification(title: string, body: string) {
-  try {
-    const { getPermissionsAsync, requestPermissionsAsync, scheduleNotificationAsync } = await import('expo-notifications');
-    const { status } = await getPermissionsAsync();
-    let finalStatus = status;
-    if (finalStatus !== 'granted') {
-      const { status: newStatus } = await requestPermissionsAsync();
-      finalStatus = newStatus;
-    }
-    if (finalStatus === 'granted') {
-      await scheduleNotificationAsync({
-        content: { title, body },
-        trigger: null,
-      });
-    }
   } catch {}
 }
 
@@ -64,15 +46,9 @@ export function usePomodoroTimer() {
   const [subjects, setSubjects] = useState<Array<{ id: string; name: string; is_hidden: boolean }>>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const autoSaveRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prefSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sessionStartRef = useRef<number>(0);
   const trackingSubjectRef = useRef<string>('');
-  const todayRef = useRef(getLocalDateString());
-  const lastSavedSecondsRef = useRef(0);
-  const totalPausedMsRef = useRef(0);
-  const pauseStartRef = useRef(0);
   const phaseEndRef = useRef(0);
   const scheduledNotificationIdRef = useRef<string | null>(null);
 
@@ -81,8 +57,7 @@ export function usePomodoroTimer() {
       const id = scheduledNotificationIdRef.current;
       scheduledNotificationIdRef.current = null;
       try {
-        const { cancelScheduledNotificationAsync } = await import('expo-notifications');
-        await cancelScheduledNotificationAsync(id);
+        await Notifications.cancelScheduledNotificationAsync(id);
       } catch {}
     }
   }, []);
@@ -91,15 +66,14 @@ export function usePomodoroTimer() {
     try {
       await cancelTimerNotification();
       if (seconds <= 0) return;
-      const { getPermissionsAsync, requestPermissionsAsync, scheduleNotificationAsync } = await import('expo-notifications');
-      const { status } = await getPermissionsAsync();
+      const { status } = await Notifications.getPermissionsAsync();
       let finalStatus = status;
       if (finalStatus !== 'granted') {
-        const { status: newStatus } = await requestPermissionsAsync();
+        const { status: newStatus } = await Notifications.requestPermissionsAsync();
         finalStatus = newStatus;
       }
       if (finalStatus === 'granted') {
-        scheduledNotificationIdRef.current = await scheduleNotificationAsync({
+        scheduledNotificationIdRef.current = await Notifications.scheduleNotificationAsync({
           content: {
             title: phase === 'focus' ? 'Focus Session Complete' : 'Break Finished',
             body: phase === 'focus' ? 'Time for a break!' : 'Time to focus!',
@@ -111,10 +85,19 @@ export function usePomodoroTimer() {
     } catch {}
   }, [cancelTimerNotification]);
 
+  const sendNotification = useCallback(async (title: string, body: string) => {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: { title, body, sound: true },
+        trigger: null,
+      });
+    } catch {}
+  }, []);
+
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       try {
-        const { getPreference } = await import('@/lib/db');
         const f = await getPreference(PREF_FOCUS, '25');
         const s = await getPreference(PREF_SHORT, '5');
         const l = await getPreference(PREF_LONG, '15');
@@ -128,29 +111,55 @@ export function usePomodoroTimer() {
         setAllowLongTimersState(al !== 'false');
         setAutoStartBreaksState(as === 'true');
 
-        const data = await api.timer.getSubjects();
-        const loadedSubjects = Array.isArray(data)
-          ? data.map((s: any) => ({ id: s.id, name: s.name, is_hidden: s.is_hidden }))
+        const [subjectsData, activeData] = await Promise.all([
+          api.timer.getSubjects(),
+          api.timer.getActiveTimer() as Promise<{ active: boolean; timer?: any }>
+        ]);
+
+        if (cancelled) return;
+
+        const loadedSubjects = Array.isArray(subjectsData)
+          ? subjectsData.map((s: any) => ({ id: s.id, name: s.name, is_hidden: s.is_hidden }))
           : [];
         setSubjects(loadedSubjects);
 
-        if (!store.selectedSubject) {
-          if (sel) {
-            store.setSelectedSubject(sel);
-          } else {
-            const firstVisible = loadedSubjects.find(sub => !sub.is_hidden);
-            if (firstVisible) {
-              store.setSelectedSubject(firstVisible.name);
+        if (activeData?.active && activeData.timer) {
+          const t = activeData.timer;
+          const elapsedSeconds = Math.floor((Date.now() - new Date(t.started_at).getTime()) / 1000);
+          const remaining = Math.max(0, t.expected_duration_minutes * 60 - elapsedSeconds);
+          
+          store.setSelectedSubject(t.subject_name);
+          store.setCurrentPhase(t.phase as TimerPhase);
+          store.setTimeLeft(remaining);
+          store.setIsRunning(true);
+          store.setIsPaused(false);
+          phaseEndRef.current = Date.now() + remaining * 1000;
+          trackingSubjectRef.current = t.subject_name;
+
+          scheduleTimerNotification(t.phase as TimerPhase, remaining);
+        } else {
+          if (!store.selectedSubject) {
+            if (sel) {
+              store.setSelectedSubject(sel);
+            } else {
+              const firstVisible = loadedSubjects.find(sub => !sub.is_hidden);
+              if (firstVisible) {
+                store.setSelectedSubject(firstVisible.name);
+              }
             }
           }
         }
-      } catch {} finally { setIsLoading(false); }
+      } catch (e) {
+        console.error('Error in load():', e);
+      } finally { 
+        if (!cancelled) setIsLoading(false); 
+      }
     };
     load();
+    return () => { cancelled = true; };
   }, []);
 
   const persistPref = useCallback(async (key: string, value: string) => {
-    const { setPreference } = await import('@/lib/db');
     await setPreference(key, value);
   }, []);
 
@@ -158,17 +167,20 @@ export function usePomodoroTimer() {
     setFocusMinutesState(v);
     persistPref(PREF_FOCUS, String(v));
     syncPrefs({ focus_minutes: v });
-  }, []);
+    if (!store.isRunning && store.currentPhase === 'focus') store.setTimeLeft(v * 60);
+  }, [store]);
   const setShortBreakMinutes = useCallback((v: number) => {
     setShortBreakMinutesState(v);
     persistPref(PREF_SHORT, String(v));
     syncPrefs({ short_break_minutes: v });
-  }, []);
+    if (!store.isRunning && store.currentPhase === 'short') store.setTimeLeft(v * 60);
+  }, [store]);
   const setLongBreakMinutes = useCallback((v: number) => {
     setLongBreakMinutesState(v);
     persistPref(PREF_LONG, String(v));
     syncPrefs({ long_break_minutes: v });
-  }, []);
+    if (!store.isRunning && store.currentPhase === 'long') store.setTimeLeft(v * 60);
+  }, [store]);
   const setAllowLongTimers = useCallback((v: boolean) => {
     setAllowLongTimersState(v);
     persistPref(PREF_ALLOW_LONG, String(v));
@@ -204,52 +216,18 @@ export function usePomodoroTimer() {
 
   const hideSubject = useCallback(async (name: string) => {
     setSubjects(prev => prev.map(s => s.name === name ? { ...s, is_hidden: true } : s));
+    try { await api.timer.hideSubject(name); } catch {}
   }, []);
 
   const deleteSubject = useCallback(async (name: string) => {
     setSubjects(prev => prev.filter(s => s.name !== name));
+    try { await api.timer.deleteSubject(name); } catch {}
   }, []);
 
   const selectSubject = useCallback((name: string) => {
     store.setSelectedSubject(name);
     persistPref(PREF_SELECTED, name);
   }, [store, persistPref]);
-
-  const saveChunk = useCallback(async () => {
-    const subject = trackingSubjectRef.current;
-    if (!subject) return;
-    const activeMs = (Date.now() - sessionStartRef.current) - totalPausedMsRef.current;
-    const activeSeconds = Math.floor(activeMs / 1000);
-    if (activeSeconds >= lastSavedSecondsRef.current + DEFAULT_CHUNK_SECONDS) {
-      await api.timer.saveSession(subject, todayRef.current, 1);
-      lastSavedSecondsRef.current += DEFAULT_CHUNK_SECONDS;
-    }
-  }, []);
-
-  const flushUnsaved = useCallback(async () => {
-    const subject = trackingSubjectRef.current;
-    if (!subject) return;
-    let endMs = Date.now();
-    if (phaseEndRef.current > 0 && endMs > phaseEndRef.current) {
-      endMs = phaseEndRef.current;
-    }
-    const activeMs = (endMs - sessionStartRef.current) - totalPausedMsRef.current;
-    const activeSeconds = Math.max(0, Math.floor(activeMs / 1000));
-    const unsaved = activeSeconds - lastSavedSecondsRef.current;
-    if (unsaved > 2) {
-      await api.timer.saveSession(subject, todayRef.current, unsaved / 60);
-      lastSavedSecondsRef.current = activeSeconds;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (store.isRunning && !store.isPaused && store.currentPhase === 'focus') {
-      autoSaveRef.current = setInterval(saveChunk, AUTO_SAVE_INTERVAL_MS);
-    } else {
-      if (autoSaveRef.current) { clearInterval(autoSaveRef.current); autoSaveRef.current = null; }
-    }
-    return () => { if (autoSaveRef.current) clearInterval(autoSaveRef.current); };
-  }, [store.isRunning, store.isPaused, store.currentPhase, saveChunk]);
 
   useEffect(() => {
     if (!store.isRunning || store.isPaused) {
@@ -270,9 +248,16 @@ export function usePomodoroTimer() {
 
     cancelTimerNotification();
 
+    const finalizeSession = async () => {
+      try {
+        await api.timer.stopTimer();
+      } catch (e) {
+        console.error('Failed to stop timer on completion', e);
+      }
+    };
+    finalizeSession();
+
     if (store.currentPhase === 'focus') {
-      flushUnsaved();
-      lastSavedSecondsRef.current = 0;
       sendNotification('Pomodoro complete', 'Focus session finished. Time for a break!');
       playSound();
     } else {
@@ -294,14 +279,21 @@ export function usePomodoroTimer() {
     if (nextPhase === 'focus') store.setCurrentCycle(store.currentCycle + 1);
     store.setTimeLeft(newDuration);
 
-    if (autoStartBreaks) setTimeout(() => {
-      phaseEndRef.current = Date.now() + newDuration * 1000;
-      store.setIsRunning(true);
-      scheduleTimerNotification(nextPhase, newDuration);
-    }, 500);
-  }, [store.timeLeft, store.isRunning, store.isPaused, store.currentPhase, store.currentCycle, focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks, flushUnsaved, cancelTimerNotification, scheduleTimerNotification]);
+    if (autoStartBreaks && store.selectedSubject) {
+      setTimeout(async () => {
+        try {
+          await api.timer.startTimer(store.selectedSubject!, Math.ceil(newDuration / 60), nextPhase);
+        } catch (e) {
+          console.error('Failed to start break timer', e);
+        }
+        phaseEndRef.current = Date.now() + newDuration * 1000;
+        store.setIsRunning(true);
+        scheduleTimerNotification(nextPhase, newDuration);
+      }, 500);
+    }
+  }, [store.timeLeft, store.isRunning, store.isPaused, store.currentPhase, store.currentCycle, focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks, cancelTimerNotification, scheduleTimerNotification]);
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     let subject = store.selectedSubject;
     if (!subject) {
       const firstVisible = subjects.find(s => !s.is_hidden);
@@ -315,79 +307,78 @@ export function usePomodoroTimer() {
       }
     }
 
-    const isResuming = pauseStartRef.current > 0;
-    if (!isResuming) {
-      trackingSubjectRef.current = subject;
-      sessionStartRef.current = Date.now();
-      lastSavedSecondsRef.current = 0;
-      totalPausedMsRef.current = 0;
-      phaseEndRef.current = Date.now() + store.timeLeft * 1000;
-    } else {
-      totalPausedMsRef.current += Date.now() - pauseStartRef.current;
-      phaseEndRef.current += Date.now() - pauseStartRef.current;
+    const expectedDurationMinutes = Math.ceil(store.timeLeft / 60);
+
+    try {
+      await api.timer.startTimer(subject, expectedDurationMinutes, store.currentPhase);
+    } catch (e) {
+      console.error('Failed to start timer on backend', e);
     }
-    pauseStartRef.current = 0;
+
+    trackingSubjectRef.current = subject;
+    phaseEndRef.current = Date.now() + store.timeLeft * 1000;
 
     store.setIsRunning(true);
     store.setIsPaused(false);
     scheduleTimerNotification(store.currentPhase, store.timeLeft);
   }, [store, subjects, persistPref, scheduleTimerNotification]);
 
-  const handlePause = useCallback(() => {
+  const handlePause = useCallback(async () => {
     if (!store.isRunning) return;
     if (store.isPaused) {
-      totalPausedMsRef.current += Date.now() - pauseStartRef.current;
-      phaseEndRef.current += Date.now() - pauseStartRef.current;
-      pauseStartRef.current = 0;
+      // Resume
+      const expectedDurationMinutes = Math.ceil(store.timeLeft / 60);
+      try {
+        await api.timer.startTimer(store.selectedSubject!, expectedDurationMinutes, store.currentPhase);
+      } catch (e) {
+        console.error('Failed to resume timer on backend', e);
+      }
+      phaseEndRef.current = Date.now() + store.timeLeft * 1000;
       store.setIsPaused(false);
       scheduleTimerNotification(store.currentPhase, store.timeLeft);
       return;
     }
-    pauseStartRef.current = Date.now();
+    // Pause
+    try {
+      await api.timer.stopTimer();
+    } catch (e) {
+      console.error('Failed to stop timer on backend', e);
+    }
     store.setIsPaused(true);
-    if (store.currentPhase === 'focus') flushUnsaved();
     cancelTimerNotification();
-  }, [store, flushUnsaved, cancelTimerNotification, scheduleTimerNotification]);
+  }, [store, cancelTimerNotification, scheduleTimerNotification]);
 
   const handleReset = useCallback(async () => {
-    await flushUnsaved();
+    try {
+      await api.timer.stopTimer();
+    } catch (e) {
+      console.error('Failed to stop timer on backend', e);
+    }
     cancelTimerNotification();
-    lastSavedSecondsRef.current = 0;
-    totalPausedMsRef.current = 0;
-    pauseStartRef.current = 0;
     phaseEndRef.current = 0;
     store.setIsRunning(false);
     store.setIsPaused(false);
     store.setTimeLeft(focusMinutes * 60);
     store.setCurrentPhase('focus');
-  }, [store, focusMinutes, flushUnsaved, cancelTimerNotification]);
+  }, [store, focusMinutes, cancelTimerNotification]);
 
-  const switchPhase = useCallback((phase: TimerPhase) => {
-    if (store.currentPhase === 'focus') flushUnsaved();
+  const switchPhase = useCallback(async (phase: TimerPhase) => {
+    try {
+      await api.timer.stopTimer();
+    } catch (e) {
+      console.error('Failed to stop timer on backend', e);
+    }
     cancelTimerNotification();
     const duration = phase === 'focus' ? focusMinutes * 60 : phase === 'short' ? shortBreakMinutes * 60 : longBreakMinutes * 60;
     store.setIsRunning(false);
     store.setIsPaused(false);
     store.setCurrentPhase(phase);
     store.setTimeLeft(duration);
-    lastSavedSecondsRef.current = 0;
-    totalPausedMsRef.current = 0;
-    pauseStartRef.current = 0;
     phaseEndRef.current = 0;
-  }, [store, focusMinutes, shortBreakMinutes, longBreakMinutes, flushUnsaved, cancelTimerNotification]);
-
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
-      if (state !== 'active' && store.isRunning && store.currentPhase === 'focus') {
-        flushUnsaved();
-      }
-    });
-    return () => sub.remove();
-  }, [store.isRunning, store.currentPhase, flushUnsaved]);
+  }, [store, focusMinutes, shortBreakMinutes, longBreakMinutes, cancelTimerNotification]);
 
   useEffect(() => () => {
     if (countdownRef.current) clearInterval(countdownRef.current);
-    if (store.isRunning && store.currentPhase === 'focus') flushUnsaved();
   }, []);
 
   return {

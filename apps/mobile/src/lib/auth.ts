@@ -44,6 +44,19 @@ export function getSupabase() {
     },
   });
 
+  supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    try {
+      const { setItemAsync, deleteItemAsync } = await import('expo-secure-store');
+      if (session) {
+        await setItemAsync('clarity_token', session.access_token);
+      } else {
+        await deleteItemAsync('clarity_token');
+      }
+    } catch (err) {
+      console.error('[AUTH] Failed to sync clarity_token to SecureStore:', err);
+    }
+  });
+
   return supabaseClient;
 }
 
@@ -51,6 +64,15 @@ export async function signIn(email: string, password: string) {
   const supabase = getSupabase();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
+
+  if (data.session) {
+    try {
+      const { setItemAsync } = await import('expo-secure-store');
+      await setItemAsync('clarity_token', data.session.access_token);
+    } catch (err) {
+      console.error('[AUTH] Failed to write token during signIn:', err);
+    }
+  }
 
   return { user: { id: data.user.id, email: data.user.email } };
 }
@@ -65,12 +87,25 @@ export async function signUp(email: string, password: string) {
 export async function signOut() {
   const supabase = getSupabase();
   await supabase.auth.signOut();
+  try {
+    const { deleteItemAsync } = await import('expo-secure-store');
+    await deleteItemAsync('clarity_token');
+  } catch (err) {
+    console.error('[AUTH] Failed to delete token during signOut:', err);
+  }
 }
 
 export async function restoreSession(): Promise<{ id: string; email?: string } | null> {
   const supabase = getSupabase();
   const { data } = await supabase.auth.getSession();
   if (!data.session) return null;
+
+  try {
+    const { setItemAsync } = await import('expo-secure-store');
+    await setItemAsync('clarity_token', data.session.access_token);
+  } catch (err) {
+    console.error('[AUTH] Failed to write token during restoreSession:', err);
+  }
 
   return {
     id: data.session.user.id,

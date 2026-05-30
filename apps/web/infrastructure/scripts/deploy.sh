@@ -36,7 +36,7 @@ command -v sam >/dev/null 2>&1 || { echo "ERROR: AWS SAM CLI not found. Install:
 command -v aws >/dev/null 2>&1 || { echo "ERROR: AWS CLI not found."; exit 1; }
 
 echo "[1/5] Running tests..."
-cd "$INFRA_DIR/../.." && npm run test:web
+cd "$INFRA_DIR/../.." && npm run test -w web
 
 echo "[2/5] Building Lambda functions..."
 "$SCRIPT_DIR/utils/build.sh"

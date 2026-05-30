@@ -15,7 +15,38 @@ export default function NotesScreen() {
   const [activeId, setActiveId] = useState<number | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
+
+  const [localTitle, setLocalTitle] = useState('');
+  const [localContent, setLocalContent] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeIdRef = useRef<number | null>(null);
+
+  // Sync activeId to ref for access in debounced save
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  const active = notes.find(n => n.id === activeId) || null;
+
+  // Initialize local states when active note changes
+  useEffect(() => {
+    if (active) {
+      setLocalTitle(active.title || '');
+      setLocalContent(active.content || '');
+    } else {
+      setLocalTitle('');
+      setLocalContent('');
+    }
+  }, [activeId]);
+
+  // Clean up debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (notes.length > 0 && (!activeId || !notes.find(n => n.id === activeId))) {
@@ -23,7 +54,9 @@ export default function NotesScreen() {
     }
   }, [notes]);
 
-  const active = notes.find(n => n.id === activeId) || null;
+  const savePendingChanges = (id: number, titleVal: string, contentVal: string) => {
+    updateNote(id, { title: titleVal, content: contentVal });
+  };
 
   const handleAdd = () => {
     const title = newTitle.trim();
@@ -32,9 +65,44 @@ export default function NotesScreen() {
     setNewTitle('');
   };
 
-  const handleUpdate = (field: string, value: string) => {
-    if (!activeId) return;
-    updateNote(activeId, { [field]: value });
+  const debouncedSave = (titleVal: string, contentVal: string) => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    const currentId = activeIdRef.current;
+    if (!currentId) return;
+
+    debounceRef.current = setTimeout(() => {
+      savePendingChanges(currentId, titleVal, contentVal);
+    }, 800);
+  };
+
+  const handleTitleChange = (text: string) => {
+    setLocalTitle(text);
+    debouncedSave(text, localContent);
+  };
+
+  const handleContentChange = (text: string) => {
+    setLocalContent(text);
+    debouncedSave(localTitle, text);
+  };
+
+  const handleSelectNote = (id: number) => {
+    if (activeId && activeId !== id) {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        savePendingChanges(activeId, localTitle, localContent);
+      }
+    }
+    setActiveId(id);
+  };
+
+  const handleDeleteNote = (id: number) => {
+    if (activeId === id && debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    deleteNote(id);
+    if (activeId === id) setActiveId(null);
   };
 
   if (isLoading) {
@@ -56,7 +124,7 @@ export default function NotesScreen() {
             <TouchableOpacity
               className={`rounded-lg px-3 py-2 mb-1 flex-row items-center justify-between ${item.id === activeId ? '' : ''}`}
               style={item.id === activeId ? { backgroundColor: `${item.color}30` } : undefined}
-              onPress={() => setActiveId(item.id)}
+              onPress={() => handleSelectNote(item.id)}
             >
               <View className="flex-row items-center flex-1 gap-2">
                 <View className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
@@ -64,7 +132,7 @@ export default function NotesScreen() {
                   {item.title || 'Untitled'}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => { deleteNote(item.id); if (activeId === item.id) setActiveId(null); }}>
+              <TouchableOpacity onPress={() => handleDeleteNote(item.id)}>
                 <Trash2 size={14} color="#6b7280" />
               </TouchableOpacity>
             </TouchableOpacity>
@@ -90,8 +158,8 @@ export default function NotesScreen() {
           <View className="flex-1 bg-white/5 border border-gray-700/30 rounded-2xl p-4">
             <TextInput
               className="text-2xl font-bold text-white mb-2"
-              value={active.title}
-              onChangeText={(v) => handleUpdate('title', v)}
+              value={localTitle}
+              onChangeText={handleTitleChange}
               placeholder="Title"
               placeholderTextColor="#4b5563"
             />
@@ -103,8 +171,8 @@ export default function NotesScreen() {
             </View>
             <TextInput
               className="flex-1 text-white text-base"
-              value={active.content}
-              onChangeText={(v) => handleUpdate('content', v)}
+              value={localContent}
+              onChangeText={handleContentChange}
               placeholder="Start writing..."
               placeholderTextColor="#4b5563"
               multiline

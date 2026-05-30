@@ -23,6 +23,18 @@ function getClient() {
         } : undefined,
       },
     });
+
+    if (typeof window !== 'undefined') {
+      supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (session) {
+          localStorage.setItem(LS_AUTH_TOKEN, session.access_token);
+          localStorage.setItem(LS_AUTH_REFRESH, session.refresh_token);
+        } else if (event === 'SIGNED_OUT') {
+          localStorage.removeItem(LS_AUTH_TOKEN);
+          localStorage.removeItem(LS_AUTH_REFRESH);
+        }
+      });
+    }
   }
   return supabaseClient;
 }

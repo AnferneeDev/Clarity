@@ -429,6 +429,34 @@ Resources:
         - Key: Project
           Value: Clarity
 
+  SettingsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: build/lambdas/settings/
+      Handler: index.handler
+      Events:
+        GetPreferences:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /preferences
+            Method: GET
+        UpdatePreferences:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /preferences
+            Method: PUT
+
+  SettingsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/clarity-${Environment}-settings
+      RetentionInDays: 30
+      Tags:
+        - Key: Project
+          Value: Clarity
+
   # ============================================
   # DNS Records
   # ============================================

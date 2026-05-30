@@ -13,7 +13,7 @@ mkdir -p "$BUILD_DIR"
 
 echo "  Building Lambdas..."
 
-for fn in auth timer tasks notes; do
+for fn in auth timer tasks notes settings; do
   echo "    → $fn"
   mkdir -p "$BUILD_DIR/$fn"
 

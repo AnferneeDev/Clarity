@@ -37,4 +37,8 @@ design.md
 tmp/
 
 # Secret management config (workspace IDs)
-.infisical.json
+.infisical.json
+# AWS SAM
+.aws-sam/
+apps/web/infrastructure/build/
+

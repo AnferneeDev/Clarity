@@ -46,6 +46,11 @@ The application is structured as a monorepo with the following layers:
 
 ---
 
+## 0. Prerequisites
+
+Always yse codebase-index mcp to save tokens and move faster tahn using grep or glob. Codebase is not the same than Zerikai-memory, they are 2 different mcps, focus.
+
+
 ## 1. Architecture Audit — Mandatory Gate (Pre-Merge Checklist)
 
 Before merging into `main`, ensure the codebase maintains strict architectural boundaries to prevent technical debt.

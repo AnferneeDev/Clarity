@@ -23,6 +23,7 @@ export function useTasks() {
     } catch { /* offline */ } finally { setIsLoading(false); }
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
   const addTask = useCallback(async (text: string, starred = false, dueDate?: string) => {

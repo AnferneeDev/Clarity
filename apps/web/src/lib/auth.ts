@@ -44,7 +44,7 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function signUp(email: string, password: string) {
-  const { data: _, error } = await getClient().auth.signUp({ email, password });
+  const { error } = await getClient().auth.signUp({ email, password });
   if (error) {
     if (isDev) console.error('[AUTH] signUp failed:', error.message);
     return { success: false, error: error.message };

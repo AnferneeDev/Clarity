@@ -82,26 +82,39 @@ export function usePomodoroTimer() {
   const [isLoading,  setIsLoading]  = useState(true);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
-  const autoSaveRef       = useRef<ReturnType<typeof setInterval> | null>(null);
   const prefSyncRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sessionStartRef   = useRef<number>(0);
   const trackingSubjectRef = useRef<string>('');
-  const todayRef          = useRef(getLocalDateString());
-  const lastSavedSecondsRef = useRef(0);
-  const totalPausedMsRef  = useRef(0);
-  const pauseStartRef     = useRef(0);
   const phaseEndRef       = useRef(0);
 
-  // ── Load subjects on mount ─────────────────────────────────────────────────
+  // ── Load subjects and active timer on mount ────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const data = await api.timer.getSubjects() as Subject[];
+        const [subjectsData, activeData] = await Promise.all([
+          api.timer.getSubjects(),
+          api.timer.getActiveTimer() as Promise<{ active: boolean; timer?: any }>
+        ]);
         if (cancelled) return;
-        setSubjects(Array.isArray(data) ? data : []);
-        const saved = typeof window !== 'undefined' ? localStorage.getItem(LS_SELECTED) : null;
-        if (!store.selectedSubject && saved) store.setSelectedSubject(saved);
+        
+        setSubjects(Array.isArray(subjectsData) ? subjectsData : []);
+        
+        if (activeData?.active && activeData.timer) {
+          const t = activeData.timer;
+          const elapsedSeconds = Math.floor((Date.now() - new Date(t.started_at).getTime()) / 1000);
+          const remaining = Math.max(0, t.expected_duration_minutes * 60 - elapsedSeconds);
+          
+          store.setSelectedSubject(t.subject_name);
+          store.setCurrentPhase(t.phase as TimerPhase);
+          store.setTimeLeft(remaining);
+          store.setIsRunning(true);
+          store.setIsPaused(false);
+          phaseEndRef.current = Date.now() + remaining * 1000;
+          trackingSubjectRef.current = t.subject_name;
+        } else {
+          const saved = typeof window !== 'undefined' ? localStorage.getItem(LS_SELECTED) : null;
+          if (!store.selectedSubject && saved) store.setSelectedSubject(saved);
+        }
       } catch { /* offline / no API */ } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -115,15 +128,19 @@ export function usePomodoroTimer() {
   const setFocusMinutes = useCallback((v: number) => {
     setFocusMinutesState(v);
     if (typeof window !== 'undefined') localStorage.setItem(LS_FOCUS, String(v));
-  }, []);
+    // Update the countdown immediately when not running on this phase
+    if (!store.isRunning && store.currentPhase === 'focus') store.setTimeLeft(v * 60);
+  }, [store]);
   const setShortBreakMinutes = useCallback((v: number) => {
     setShortBreakMinutesState(v);
     if (typeof window !== 'undefined') localStorage.setItem(LS_SHORT, String(v));
-  }, []);
+    if (!store.isRunning && store.currentPhase === 'short') store.setTimeLeft(v * 60);
+  }, [store]);
   const setLongBreakMinutes = useCallback((v: number) => {
     setLongBreakMinutesState(v);
     if (typeof window !== 'undefined') localStorage.setItem(LS_LONG, String(v));
-  }, []);
+    if (!store.isRunning && store.currentPhase === 'long') store.setTimeLeft(v * 60);
+  }, [store]);
   const setAllowLongTimers = useCallback((v: boolean) => {
     setAllowLongTimersState(v);
     if (typeof window !== 'undefined') localStorage.setItem(LS_ALLOW_LONG, String(v));
@@ -131,7 +148,7 @@ export function usePomodoroTimer() {
   const setAutoStartBreaks = useCallback((v: boolean) => {
     setAutoStartBreaksState(v);
     if (typeof window !== 'undefined') localStorage.setItem(LS_AUTO_START, String(v));
-  }, []);
+  }, [])
 
   const syncPrefs = useCallback((updates: Record<string, unknown>) => {
     if (prefSyncRef.current) clearTimeout(prefSyncRef.current);
@@ -168,40 +185,6 @@ export function usePomodoroTimer() {
     if (typeof window !== 'undefined') localStorage.setItem(LS_SELECTED, name);
   }, [store]);
 
-  // ── Session saving ─────────────────────────────────────────────────────────
-  const saveChunk = useCallback(async () => {
-    const subject = trackingSubjectRef.current;
-    if (!subject) return;
-    const activeMs = (Date.now() - sessionStartRef.current) - totalPausedMsRef.current;
-    const activeSeconds = Math.floor(activeMs / 1000);
-    if (activeSeconds >= lastSavedSecondsRef.current + DEFAULT_CHUNK_SECONDS) {
-      try { await api.timer.saveSession(subject, todayRef.current, 1); } catch { }
-      lastSavedSecondsRef.current += DEFAULT_CHUNK_SECONDS;
-    }
-  }, []);
-
-  const flushUnsaved = useCallback(async () => {
-    const subject = trackingSubjectRef.current;
-    if (!subject) return;
-    const activeMs = (Date.now() - sessionStartRef.current) - totalPausedMsRef.current;
-    const activeSeconds = Math.floor(activeMs / 1000);
-    const unsaved = activeSeconds - lastSavedSecondsRef.current;
-    if (unsaved > MIN_SAVE_SECONDS) {
-      try { await api.timer.saveSession(subject, todayRef.current, unsaved / 60); } catch { }
-      lastSavedSecondsRef.current = activeSeconds;
-    }
-  }, []);
-
-  // ── Auto-save interval ─────────────────────────────────────────────────────
-  useEffect(() => {
-    if (store.isRunning && !store.isPaused && store.currentPhase === 'focus') {
-      autoSaveRef.current = setInterval(saveChunk, AUTO_SAVE_INTERVAL_MS);
-    } else {
-      if (autoSaveRef.current) { clearInterval(autoSaveRef.current); autoSaveRef.current = null; }
-    }
-    return () => { if (autoSaveRef.current) clearInterval(autoSaveRef.current); };
-  }, [store.isRunning, store.isPaused, store.currentPhase, saveChunk]);
-
   // ── Wall-clock countdown via reused Worker URL ─────────────────────────────
   useEffect(() => {
     if (!store.isRunning || store.isPaused) return;
@@ -226,9 +209,16 @@ export function usePomodoroTimer() {
     const timerExpired = store.timeLeft <= 0 || (phaseEndRef.current > 0 && Date.now() >= phaseEndRef.current);
     if (!timerExpired) return;
 
+    const finalizeSession = async () => {
+      try {
+        await api.timer.stopTimer();
+      } catch (e) {
+        console.error('Failed to stop timer on completion', e);
+      }
+    };
+    finalizeSession();
+
     if (store.currentPhase === 'focus') {
-      flushUnsaved();
-      lastSavedSecondsRef.current = 0;
       sendNotification('Pomodoro complete', 'Focus session finished. Time for a break!');
       playSound();
     } else {
@@ -253,64 +243,81 @@ export function usePomodoroTimer() {
     if (nextPhase === 'focus') store.setCurrentCycle(store.currentCycle + 1);
     store.setTimeLeft(newDuration);
 
-    if (autoStartBreaks) {
-      setTimeout(() => {
+    if (autoStartBreaks && store.selectedSubject) {
+      setTimeout(async () => {
+        try {
+          await api.timer.startTimer(store.selectedSubject!, Math.ceil(newDuration / 60), nextPhase);
+        } catch (e) {
+          console.error('Failed to start break timer', e);
+        }
         phaseEndRef.current = Date.now() + newDuration * 1000;
         store.setIsRunning(true);
       }, 500);
     }
   }, [store.timeLeft, store.isRunning, store.isPaused, store.currentPhase, store.currentCycle,
-      focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks, flushUnsaved, store]);
+      focusMinutes, shortBreakMinutes, longBreakMinutes, autoStartBreaks, store]);
 
   // ── Controls ───────────────────────────────────────────────────────────────
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     if (!store.selectedSubject) return;
     requestNotificationPermission();
 
-    const isResuming = pauseStartRef.current > 0;
-    if (!isResuming) {
-      trackingSubjectRef.current = store.selectedSubject;
-      sessionStartRef.current = Date.now();
-      lastSavedSecondsRef.current = 0;
-      totalPausedMsRef.current = 0;
-      phaseEndRef.current = Date.now() + store.timeLeft * 1000;
-    } else {
-      totalPausedMsRef.current += Date.now() - pauseStartRef.current;
-      phaseEndRef.current += Date.now() - pauseStartRef.current;
+    const expectedDurationMinutes = Math.ceil(store.timeLeft / 60);
+
+    try {
+      await api.timer.startTimer(store.selectedSubject, expectedDurationMinutes, store.currentPhase);
+    } catch (e) {
+      console.error('Failed to start timer on backend', e);
     }
-    pauseStartRef.current = 0;
+
+    trackingSubjectRef.current = store.selectedSubject;
+    phaseEndRef.current = Date.now() + store.timeLeft * 1000;
     store.setIsRunning(true);
     store.setIsPaused(false);
   }, [store]);
 
-  const handlePause = useCallback(() => {
+  const handlePause = useCallback(async () => {
     if (!store.isRunning) return;
     if (store.isPaused) {
-      totalPausedMsRef.current += Date.now() - pauseStartRef.current;
-      phaseEndRef.current += Date.now() - pauseStartRef.current;
-      pauseStartRef.current = 0;
+      // Resume
+      const expectedDurationMinutes = Math.ceil(store.timeLeft / 60);
+      try {
+        await api.timer.startTimer(store.selectedSubject!, expectedDurationMinutes, store.currentPhase);
+      } catch (e) {
+        console.error('Failed to resume timer on backend', e);
+      }
+      phaseEndRef.current = Date.now() + store.timeLeft * 1000;
       store.setIsPaused(false);
       return;
     }
-    pauseStartRef.current = Date.now();
+    // Pause
+    try {
+      await api.timer.stopTimer();
+    } catch (e) {
+      console.error('Failed to stop timer on backend', e);
+    }
     store.setIsPaused(true);
-    if (store.currentPhase === 'focus') flushUnsaved();
-  }, [store, flushUnsaved]);
+  }, [store]);
 
   const handleReset = useCallback(async () => {
-    await flushUnsaved();
-    lastSavedSecondsRef.current = 0;
-    totalPausedMsRef.current = 0;
-    pauseStartRef.current = 0;
+    try {
+      await api.timer.stopTimer();
+    } catch (e) {
+      console.error('Failed to stop timer on backend', e);
+    }
     phaseEndRef.current = 0;
     store.setIsRunning(false);
     store.setIsPaused(false);
     store.setTimeLeft(focusMinutes * 60);
     store.setCurrentPhase('focus');
-  }, [store, focusMinutes, flushUnsaved]);
+  }, [store, focusMinutes]);
 
-  const switchPhase = useCallback((phase: TimerPhase) => {
-    if (store.currentPhase === 'focus') flushUnsaved();
+  const switchPhase = useCallback(async (phase: TimerPhase) => {
+    try {
+      await api.timer.stopTimer();
+    } catch (e) {
+      console.error('Failed to stop timer on backend', e);
+    }
     const duration = phase === 'focus' ? focusMinutes * 60
       : phase === 'short' ? shortBreakMinutes * 60
       : longBreakMinutes * 60;
@@ -318,25 +325,9 @@ export function usePomodoroTimer() {
     store.setIsPaused(false);
     store.setCurrentPhase(phase);
     store.setTimeLeft(duration);
-    lastSavedSecondsRef.current = 0;
-    totalPausedMsRef.current = 0;
-    pauseStartRef.current = 0;
     phaseEndRef.current = 0;
-  }, [store, focusMinutes, shortBreakMinutes, longBreakMinutes, flushUnsaved]);
+  }, [store, focusMinutes, shortBreakMinutes, longBreakMinutes]);
 
-  // ── Visibility save + cleanup ──────────────────────────────────────────────
-  useEffect(() => {
-    const onVisibility = () => {
-      if (document.hidden && store.isRunning && store.currentPhase === 'focus') flushUnsaved();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [store.isRunning, store.currentPhase, flushUnsaved]);
-
-  useEffect(() => () => {
-    if (store.isRunning && store.currentPhase === 'focus') flushUnsaved();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // ── Public API ─────────────────────────────────────────────────────────────
   const phaseTotalSeconds = store.currentPhase === 'focus' ? focusMinutes * 60

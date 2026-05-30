@@ -22,6 +22,7 @@ export function useNotes() {
     } catch { } finally { setIsLoading(false); }
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchNotes(); }, [fetchNotes]);
 
   const addNote = useCallback(async (title: string, content = '', color = '#ffffff') => {
